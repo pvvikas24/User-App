@@ -5,15 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { Bus, LatLng } from '@/lib/types';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
-import { X, Clock, MapPin, Users } from 'lucide-react';
+import { X, Clock, MapPin, Users, Route as RouteIcon } from 'lucide-react';
 
 interface BusDetailsCardProps {
   bus: Bus;
   userLocation: LatLng | null;
   onClose: () => void;
+  status: string;
 }
 
-const BusDetailsCard = ({ bus, userLocation, onClose }: BusDetailsCardProps) => {
+const BusDetailsCard = ({ bus, userLocation, onClose, status }: BusDetailsCardProps) => {
   const [distance, setDistance] = useState<number | null>(null);
   const [eta, setEta] = useState<number | null>(null);
 
@@ -45,12 +46,20 @@ const BusDetailsCard = ({ bus, userLocation, onClose }: BusDetailsCardProps) => 
           </Button>
         </CardHeader>
         <CardContent>
-          <p className="text-lg font-semibold mb-4">To: {bus.destination}</p>
+          <div className="flex justify-between items-start mb-4">
+            <div>
+                <p className="text-lg font-semibold mb-1">To: {bus.destination}</p>
+                <div className="flex items-center gap-2 text-sm text-amber-400 font-semibold">
+                    <RouteIcon className="h-4 w-4" />
+                    <span>{status}</span>
+                </div>
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-muted-foreground">ETA</p>
+                <p className="text-muted-foreground">ETA to You</p>
                 <p className="font-bold">{eta !== null ? `${eta} mins` : 'Calculating...'}</p>
               </div>
             </div>

@@ -1,5 +1,5 @@
-import Dashboard from '@/components/dashboard';
+import SearchPage from '@/components/search-page';
 
 export default function Home() {
-  return <Dashboard />;
+  return <SearchPage />;
 }
