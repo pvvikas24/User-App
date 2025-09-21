@@ -100,7 +100,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   const onboardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  const AVERAGE_SPEED_KMPH = 150; // Average speed of the bus in km/h
+  const AVERAGE_SPEED_KMPH = 500; // Average speed of the bus in km/h
 
   const handleGoBack = () => {
     setTrackingState('authenticated');
