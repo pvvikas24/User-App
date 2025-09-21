@@ -100,7 +100,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   const onboardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  const AVERAGE_SPEED_KMPH = 40; // Average speed of the bus in km/h
+  const AVERAGE_SPEED_KMPH = 80; // Average speed of the bus in km/h
 
   const handleGoBack = () => {
     setTrackingState('authenticated');
@@ -222,7 +222,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 
         const distanceToFinalTarget = getDistanceFromLatLonInKm(currentBus.position.lat, currentBus.position.lng, tickTargetLocation.lat, tickTargetLocation.lng);
 
-        const simulationTickSeconds = 1;
+        const simulationTickSeconds = 0.1; // Interval is 100ms
         const distancePerTick = (AVERAGE_SPEED_KMPH * (simulationTickSeconds / 3600));
 
         if (distanceToFinalTarget < distancePerTick * 2) {
@@ -470,5 +470,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 };
 
 export default Dashboard;
+
+    
 
     
