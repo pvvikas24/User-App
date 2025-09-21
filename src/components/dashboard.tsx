@@ -345,8 +345,8 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
                     <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
                         <Map
                             mapId="punjab-roadways-map"
-                            center={initialCenter}
-                            zoom={12}
+                            defaultCenter={initialCenter}
+                            defaultZoom={12}
                             disableDefaultUI={false}
                             className="h-full w-full"
                         >
@@ -455,5 +455,6 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
 
 export default Dashboard;
 
+    
     
     
