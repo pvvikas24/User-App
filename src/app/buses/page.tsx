@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { initialBuses, routes } from '@/lib/data';
+import { initialBuses, routes, busStops } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Users, Wind } from 'lucide-react';
@@ -14,14 +14,24 @@ const BusListPage = () => {
     const start = searchParams.get('start');
     const destination = searchParams.get('destination');
 
-    // This is a simplified search logic. A real app would query a backend.
-    const availableBuses = initialBuses.filter(bus => {
-        const route = routes.find(r => r.id === bus.routeId);
-        if (!route) return false;
-        // A simple check if the start and destination are on the bus's route name.
-        // A more robust solution would check against the stops array in the route data.
-        return route.name.toLowerCase().includes(start?.toLowerCase() ?? '') && route.name.toLowerCase().includes(destination?.toLowerCase() ?? '');
-    });
+    const availableBuses = React.useMemo(() => {
+        if (!start || !destination) return [];
+        return initialBuses.filter(bus => {
+            const route = routes.find(r => r.id === bus.routeId);
+            if (!route) return false;
+
+            const startStopInfo = busStops.find(s => s.name === start);
+            const destinationStopInfo = busStops.find(s => s.name === destination);
+
+            if (!startStopInfo || !destinationStopInfo) return false;
+
+            const startIndex = route.stops.indexOf(startStopInfo.id);
+            const destinationIndex = route.stops.indexOf(destinationStopInfo.id);
+
+            // The bus is available if both stops are on the route and the start stop comes before the destination stop.
+            return startIndex !== -1 && destinationIndex !== -1 && startIndex < destinationIndex;
+        });
+    }, [start, destination]);
 
     const handleSelectBus = (busId: string) => {
         router.push(`/tracking/${busId}?start=${start}&destination=${destination}`);

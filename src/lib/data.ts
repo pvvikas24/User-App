@@ -29,7 +29,7 @@ export const routes: Route[] = [
 
 export const initialBuses: Bus[] = [
   {
-    id: 'bus101',
+    id: 'PB01A1234',
     routeId: 'route1',
     position: { lat: 30.7419, lng: 76.7762 },
     destination: 'Amritsar',
@@ -37,7 +37,7 @@ export const initialBuses: Bus[] = [
     passengerCount: 25,
   },
   {
-    id: 'bus102',
+    id: 'PB02B5678',
     routeId: 'route1',
     position: { lat: 30.9660, lng: 76.5250 },
     destination: 'Amritsar',
@@ -45,7 +45,7 @@ export const initialBuses: Bus[] = [
     passengerCount: 40,
   },
   {
-    id: 'bus103',
+    id: 'PB03C9101',
     routeId: 'route1',
     position: { lat: 31.3260, lng: 75.5762 },
     destination: 'Chandigarh',
