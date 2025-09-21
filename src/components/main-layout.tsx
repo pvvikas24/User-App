@@ -13,7 +13,7 @@ import {
   SidebarFooter,
   SidebarInset,
 } from '@/components/ui/sidebar';
-import { LogOut, User, Settings, LayoutDashboard } from 'lucide-react';
+import { LogOut, Ticket, IndianRupee, LayoutDashboard } from 'lucide-react';
 import Logo from './logo';
 import { useTracking } from '@/contexts/TrackingContext';
 import { useRouter, usePathname } from 'next/navigation';
@@ -43,15 +43,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="/profile" isActive={pathname === '/profile'} tooltip="Profile">
-                <User />
-                Profile
+              <SidebarMenuButton href="/my-trips" isActive={pathname === '/my-trips'} tooltip="My Trips">
+                <Ticket />
+                My Trips
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="/settings" isActive={pathname === '/settings'} tooltip="Settings">
-                <Settings />
-                Settings
+              <SidebarMenuButton href="/fare-chart" isActive={pathname === '/fare-chart'} tooltip="Fare Chart">
+                <IndianRupee />
+                Fare Chart
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
