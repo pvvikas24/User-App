@@ -153,7 +153,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 return { ...bus, position: route.path[nextPointIndex] };
             })
         );
-    }, 2000); 
+    }, 5000); 
 
     return () => clearInterval(interval);
   }, [selectedBus, destination]);
