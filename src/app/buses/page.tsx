@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -7,35 +8,44 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Users, Wind } from 'lucide-react';
 import Logo from '@/components/logo';
+import { useTracking } from '@/contexts/TrackingContext';
 
 const BusListPage = () => {
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { setTrackingState } = useTracking();
+
     const start = searchParams.get('start');
     const destination = searchParams.get('destination');
 
     const availableBuses = React.useMemo(() => {
         if (!start || !destination) return [];
+        
+        const startStopInfo = busStops.find(s => s.name === start);
+        const destinationStopInfo = busStops.find(s => s.name === destination);
+        
+        if (!startStopInfo || !destinationStopInfo) return [];
+
         return initialBuses.filter(bus => {
             const route = routes.find(r => r.id === bus.routeId);
             if (!route) return false;
 
-            const startStopInfo = busStops.find(s => s.name === start);
-            const destinationStopInfo = busStops.find(s => s.name === destination);
-
-            if (!startStopInfo || !destinationStopInfo) return false;
-
             const startIndex = route.stops.indexOf(startStopInfo.id);
             const destinationIndex = route.stops.indexOf(destinationStopInfo.id);
 
-            // The bus is available if both stops are on the route and the start stop comes before the destination stop.
             return startIndex !== -1 && destinationIndex !== -1 && startIndex < destinationIndex;
         });
     }, [start, destination]);
 
     const handleSelectBus = (busId: string) => {
+        setTrackingState('tracking');
         router.push(`/tracking/${busId}?start=${start}&destination=${destination}`);
     };
+
+    const handleGoBack = () => {
+        setTrackingState('authenticated');
+        router.push('/');
+    }
 
     return (
         <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
@@ -86,7 +96,7 @@ const BusListPage = () => {
                             )}
                         </CardContent>
                          <CardFooter>
-                           <Button variant="outline" onClick={() => router.back()}>Go Back</Button>
+                           <Button variant="outline" onClick={handleGoBack}>Go Back</Button>
                         </CardFooter>
                     </Card>
                 </div>

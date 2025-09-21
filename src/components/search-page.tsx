@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Logo from './logo';
 import { busStops } from '@/lib/data';
 import { ArrowRight } from 'lucide-react';
+import { useTracking } from '@/contexts/TrackingContext';
 
 const formSchema = z.object({
   start: z.string().min(1, 'Please select a starting point.'),
@@ -24,6 +26,7 @@ const formSchema = z.object({
 
 const SearchPage = () => {
   const router = useRouter();
+  const { setTrackingState } = useTracking();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -33,6 +36,7 @@ const SearchPage = () => {
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    setTrackingState('tracking');
     router.push(`/buses?start=${values.start}&destination=${values.destination}`);
   };
 
