@@ -11,10 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import Logo from './logo';
 import { busStops } from '@/lib/data';
 import { ArrowRight } from 'lucide-react';
-import { useTracking } from '@/contexts/TrackingContext';
 
 const formSchema = z.object({
   start: z.string().min(1, 'Please select a starting point.'),
@@ -26,7 +24,6 @@ const formSchema = z.object({
 
 const SearchPage = () => {
   const router = useRouter();
-  const { setTrackingState } = useTracking();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -36,17 +33,13 @@ const SearchPage = () => {
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    setTrackingState('tracking');
     router.push(`/buses?start=${values.start}&destination=${values.destination}`);
   };
 
   const stopNames = React.useMemo(() => busStops.map(stop => stop.name), []);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        <div className="absolute top-8 left-8">
-            <Logo />
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Where are you going?</CardTitle>

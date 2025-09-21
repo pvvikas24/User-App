@@ -6,7 +6,6 @@ import { APIProvider, Map, AdvancedMarker, useMap, Pin } from '@vis.gl/react-goo
 import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
 import { initialBuses, routes, busStops } from '@/lib/data';
 import type { Bus, LatLng } from '@/lib/types';
-import Logo from './logo';
 import BusIcon from './icons/bus-icon';
 import { useRouter } from 'next/navigation';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
@@ -159,7 +158,6 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
   const AVERAGE_SPEED_KMPH = 1000; 
 
   const handleGoBack = () => {
-    setTrackingState('authenticated');
     router.back();
   }
 
@@ -171,10 +169,9 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
         variant: "destructive",
     });
     setTimeout(() => {
-        setTrackingState('authenticated');
         router.push('/');
     }, 2000);
-  },[router, toast, setTrackingState]);
+  },[router, toast]);
   
 
   useEffect(() => {
@@ -323,7 +320,7 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
         clearInterval(simulationIntervalRef.current);
       }
     };
-  }, [selectedBusId, route, onboard, userLocation, destinationLocation, toast, handleMissedBus, tripFinishedForUser, initialPathIndex, AVERAGE_SPEED_KMPH]);
+  }, [selectedBusId, route, onboard, userLocation, destinationLocation, toast, handleMissedBus, tripFinishedForUser, initialPathIndex, AVERAGE_SPEED_KMPH, setTrackingState, router]);
   
   const displayPath = useMemo(() => {
     if (!selectedBus || !route) return [];
@@ -373,9 +370,6 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
             <Button size="icon" variant="outline" onClick={handleGoBack} className="shadow-lg">
                 <ArrowLeft className="h-5 w-5" />
             </Button>
-             <div className="p-1 rounded-lg">
-                <Logo />
-             </div>
           </div>
         </header>
 
@@ -385,7 +379,7 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
                     <TabsTrigger value="map">Live Map</TabsTrigger>
                     <TabsTrigger value="details">Ride Details</TabsTrigger>
                 </TabsList>
-                <TabsContent value="map" className="h-[calc(100vh-150px)] relative">
+                <TabsContent value="map" className="h-[calc(100vh-200px)] relative">
                     <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
                         <Map
                             mapId="punjab-roadways-map"

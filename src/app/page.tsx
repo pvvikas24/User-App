@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useTracking } from '@/contexts/TrackingContext';
 import SearchPage from '@/components/search-page';
 import { useRouter } from 'next/navigation';
+import MainLayout from '@/components/main-layout';
 
 
 export default function Home() {
@@ -20,5 +21,9 @@ export default function Home() {
     return null; // or a loading spinner
   }
 
-  return <SearchPage />;
+  return (
+    <MainLayout>
+      <SearchPage />
+    </MainLayout>
+  );
 }

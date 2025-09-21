@@ -5,6 +5,7 @@ import React, { useEffect } from 'react';
 import Dashboard from '@/components/dashboard';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTracking } from '@/contexts/TrackingContext';
+import MainLayout from '@/components/main-layout';
 
 export default function TrackingPage() {
     const params = useParams();
@@ -34,11 +35,15 @@ export default function TrackingPage() {
     const initialBusPosition = { lat: parseFloat(lat), lng: parseFloat(lng) };
     const initialPathIndex = parseInt(pathIndex, 10);
 
-    return <Dashboard 
-        selectedBusId={busId}
-        userStartLocation={startLocation}
-        userDestination={destination}
-        initialBusPosition={initialBusPosition}
-        initialPathIndex={initialPathIndex}
-    />;
+    return (
+        <MainLayout>
+            <Dashboard 
+                selectedBusId={busId}
+                userStartLocation={startLocation}
+                userDestination={destination}
+                initialBusPosition={initialBusPosition}
+                initialPathIndex={initialPathIndex}
+            />
+        </MainLayout>
+    );
 }

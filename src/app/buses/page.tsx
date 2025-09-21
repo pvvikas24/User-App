@@ -6,12 +6,12 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { initialBuses, routes, busStops } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Users, Wind, MapPin, IndianRupee, Wifi } from 'lucide-react';
-import Logo from '@/components/logo';
+import { ArrowRight, Users, MapPin, IndianRupee } from 'lucide-react';
 import { useTracking } from '@/contexts/TrackingContext';
 import type { Route, Bus } from '@/lib/types';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import MainLayout from '@/components/main-layout';
 
 const BusListPage = () => {
     const searchParams = useSearchParams();
@@ -126,7 +126,6 @@ const BusListPage = () => {
     };
 
     const handleGoBack = () => {
-        setTrackingState('authenticated');
         router.push('/');
     }
 
@@ -142,64 +141,65 @@ const BusListPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
-            <header className="mb-8">
-                <Logo />
-            </header>
-            <main>
-                <div className="max-w-4xl mx-auto">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Available Buses</CardTitle>
-                            <CardDescription>
-                                Showing buses from <span className="font-semibold text-primary">{start}</span> to <span className="font-semibold text-primary">{destination}</span>. Distances are updated live.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {availableBuses.length > 0 ? (
-                                availableBuses.map(bus => (
-                                    <Card key={bus.id} className="bg-secondary/50">
-                                        <CardHeader>
-                                            <div className="flex justify-between items-center">
-                                                <CardTitle className="text-xl">Bus #{bus.id}</CardTitle>
-                                                <Badge variant={getCrowdBadgeVariant(bus.crowd)} className="capitalize">{bus.crowd} Crowd</Badge>
-                                            </div>
-                                            <CardDescription>{(bus.routeDetails as Route)?.name}</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="flex justify-between items-center">
-                                            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-4">
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                                                    <span>{bus.distance.toFixed(1)} km away</span>
+        <MainLayout>
+            <div className="p-4 md:p-8">
+                <header className="mb-8">
+                </header>
+                <main>
+                    <div className="max-w-4xl mx-auto">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Available Buses</CardTitle>
+                                <CardDescription>
+                                    Showing buses from <span className="font-semibold text-primary">{start}</span> to <span className="font-semibold text-primary">{destination}</span>. Distances are updated live.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {availableBuses.length > 0 ? (
+                                    availableBuses.map(bus => (
+                                        <Card key={bus.id} className="bg-secondary/50">
+                                            <CardHeader>
+                                                <div className="flex justify-between items-center">
+                                                    <CardTitle className="text-xl">Bus #{bus.id}</CardTitle>
+                                                    <Badge variant={getCrowdBadgeVariant(bus.crowd)} className="capitalize">{bus.crowd} Crowd</Badge>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <Users className="w-4 h-4 text-muted-foreground" />
-                                                    <span>{bus.passengerCount} passengers</span>
+                                                <CardDescription>{(bus.routeDetails as Route)?.name}</CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="flex justify-between items-center">
+                                                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-4">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                                                        <span>{bus.distance.toFixed(1)} km away</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <Users className="w-4 h-4 text-muted-foreground" />
+                                                        <span>{bus.passengerCount} passengers</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-sm font-semibold">
+                                                        <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                                                        <span>{bus.ticketPrice}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm font-semibold">
-                                                    <IndianRupee className="w-4 h-4 text-muted-foreground" />
-                                                    <span>{bus.ticketPrice}</span>
-                                                </div>
-                                            </div>
-                                            <Button onClick={() => handleSelectBus(bus.id, bus.position.lat, bus.position.lng, bus.currentPathIndex ?? 0)} className="mt-4 sm:mt-0">
-                                                Track Bus <ArrowRight className="ml-2 h-4 w-4" />
-                                            </Button>
-                                        </CardContent>
-                                    </Card>
-                                ))
-                            ) : (
-                                <p className="text-center text-muted-foreground py-8">
-                                    No direct buses found for the selected route. They may be ahead of your stop.
-                                </p>
-                            )}
-                        </CardContent>
-                         <CardFooter>
-                           <Button variant="outline" onClick={handleGoBack}>Go Back</Button>
-                        </CardFooter>
-                    </Card>
-                </div>
-            </main>
-        </div>
+                                                <Button onClick={() => handleSelectBus(bus.id, bus.position.lat, bus.position.lng, bus.currentPathIndex ?? 0)} className="mt-4 sm:mt-0">
+                                                    Track Bus <ArrowRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    ))
+                                ) : (
+                                    <p className="text-center text-muted-foreground py-8">
+                                        No direct buses found for the selected route. They may be ahead of your stop.
+                                    </p>
+                                )}
+                            </CardContent>
+                            <CardFooter>
+                            <Button variant="outline" onClick={handleGoBack}>Go Back</Button>
+                            </CardFooter>
+                        </Card>
+                    </div>
+                </main>
+            </div>
+        </MainLayout>
     );
 };
 
