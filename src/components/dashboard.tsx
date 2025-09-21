@@ -12,7 +12,7 @@ import BusDetailsCard from './bus-details-card';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
 import { Button } from './ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { ArrowLeft } from 'lucide-react';
 
 const CustomPolyline = ({ path, color }: { path: LatLng[]; color: string }) => {
@@ -95,6 +95,11 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     setStatus('You are onboard. Heading to destination.');
   }
 
+  const handleCancelOnboard = () => {
+      setShowOnboardPrompt(false);
+      router.back();
+  }
+
   useEffect(() => {
     const interval = setInterval(() => {
         if (!selectedBus) return;
@@ -148,7 +153,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 return { ...bus, position: route.path[nextPointIndex] };
             })
         );
-    }, 5000); 
+    }, 2000); 
 
     return () => clearInterval(interval);
   }, [selectedBus, destination]);
@@ -254,6 +259,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
+                    <AlertDialogCancel onClick={handleCancelOnboard}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleOnboard}>
                         Onboard
                     </AlertDialogAction>
