@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, Polyline } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
 import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
 import { initialBuses, routes, busStops } from '@/lib/data';
 import type { Bus, LatLng, Route } from '@/lib/types';
@@ -16,6 +16,30 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Search, Route as RouteIcon, LocateFixed } from 'lucide-react';
+
+const CustomPolyline = ({ path }: { path: LatLng[] }) => {
+    const map = useMap();
+  
+    useEffect(() => {
+      if (!map) return;
+  
+      const polyline = new google.maps.Polyline({
+        path: path,
+        geodesic: true,
+        strokeColor: 'hsl(var(--primary))',
+        strokeOpacity: 0.8,
+        strokeWeight: 6,
+      });
+  
+      polyline.setMap(map);
+  
+      return () => {
+        polyline.setMap(null);
+      };
+    }, [map, path]);
+  
+    return null;
+  };
 
 const Dashboard = () => {
   const [buses, setBuses] = useState<Bus[]>(initialBuses);
@@ -132,7 +156,7 @@ const Dashboard = () => {
           ))}
 
           {selectedRoute && (
-             <Polyline path={selectedRoute.path} strokeColor="var(--color-primary)" strokeOpacity={0.8} strokeWeight={6} />
+             <CustomPolyline path={selectedRoute.path} />
           )}
 
         </Map>
