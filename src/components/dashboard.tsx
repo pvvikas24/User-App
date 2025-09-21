@@ -155,7 +155,7 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
   const onboardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  const AVERAGE_SPEED_KMPH = 1000; 
+  const AVERAGE_SPEED_KMPH = 40; 
 
   const handleGoBack = () => {
     router.back();
@@ -254,6 +254,23 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
         const currentBus = prevBuses.find(b => b.id === selectedBusId);
         if (!currentBus) return prevBuses;
   
+        // Passenger simulation
+        let newPassengerCount = currentBus.passengerCount;
+        if (Math.random() < 0.1) { // 10% chance to change passenger count every tick
+            const change = Math.floor(Math.random() * 5) - 2; // change between -2 and 2
+            newPassengerCount = Math.max(0, Math.min(60, newPassengerCount + change));
+        }
+
+        let newCrowd: 'low' | 'medium' | 'high';
+        if (newPassengerCount < 20) {
+            newCrowd = 'low';
+        } else if (newPassengerCount < 45) {
+            newCrowd = 'medium';
+        } else {
+            newCrowd = 'high';
+        }
+
+
         let tickTargetLocation: LatLng;
         if (tripFinishedForUser) {
             tickTargetLocation = route.path[route.path.length-1];
@@ -263,14 +280,14 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
 
         const distanceToFinalTarget = getDistanceFromLatLonInKm(currentBus.position.lat, currentBus.position.lng, tickTargetLocation.lat, tickTargetLocation.lng);
 
-        const simulationTickSeconds = 0.1; 
+        const simulationTickSeconds = 0.5; // Update more frequently for smoother simulation
         const distancePerTick = (AVERAGE_SPEED_KMPH * (simulationTickSeconds / 3600));
 
         if (distanceToFinalTarget < distancePerTick * 2) {
              if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
 
             if (tripFinishedForUser) {
-                 return prevBuses;
+                 return prevBuses.map(b => b.id === selectedBusId ? { ...b, passengerCount: newPassengerCount, crowd: newCrowd } : b);
             }
 
             if (!onboard) {
@@ -280,14 +297,14 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
                 setStatus('You have arrived at your destination.');
                 setShowGetDownPrompt(true);
             }
-            return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: tickTargetLocation } : b);
+            return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: tickTargetLocation, passengerCount: newPassengerCount, crowd: newCrowd } : b);
         }
         
         let currentPathIndex = currentBus.currentPathIndex ?? currentPathIndexRef.current;
 
         if (currentPathIndex >= route.path.length - 1) {
           if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-          return prevBuses;
+          return prevBuses.map(b => b.id === selectedBusId ? { ...b, passengerCount: newPassengerCount, crowd: newCrowd } : b);
         }
 
         let totalDistanceToTravel = distancePerTick;
@@ -311,9 +328,9 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
           }
         }
         
-        return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: newPosition, currentPathIndex } : b);
+        return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: newPosition, currentPathIndex, passengerCount: newPassengerCount, crowd: newCrowd } : b);
       });
-    }, 100); 
+    }, 500); 
   
     return () => {
       if (simulationIntervalRef.current) {
@@ -493,3 +510,5 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
 };
 
 export default Dashboard;
+
+    
