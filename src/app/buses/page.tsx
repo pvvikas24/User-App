@@ -6,10 +6,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { initialBuses, routes, busStops } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Users, Wind } from 'lucide-react';
+import { ArrowRight, Users, Wind, MapPin } from 'lucide-react';
 import Logo from '@/components/logo';
 import { useTracking } from '@/contexts/TrackingContext';
 import type { Route } from '@/lib/types';
+import { getDistanceFromLatLonInKm } from '@/lib/utils';
 
 const BusListPage = () => {
     const searchParams = useSearchParams();
@@ -44,10 +45,19 @@ const BusListPage = () => {
             const userStartIndex = busRouteStops.indexOf(start);
 
             return busCurrentStopIndex <= userStartIndex;
-        }).map(bus => ({
-            ...bus,
-            routeDetails: relevantRoutes.find(r => r.id === bus.routeId)
-        }));
+        }).map(bus => {
+            const distance = getDistanceFromLatLonInKm(
+                startStopInfo.position.lat,
+                startStopInfo.position.lng,
+                bus.position.lat,
+                bus.position.lng
+            );
+            return {
+                ...bus,
+                routeDetails: relevantRoutes.find(r => r.id === bus.routeId),
+                distance,
+            }
+        }).sort((a, b) => a.distance - b.distance);
     }, [start, destination]);
 
     const handleSelectBus = (busId: string) => {
@@ -83,7 +93,11 @@ const BusListPage = () => {
                                             <CardDescription>{(bus.routeDetails as Route)?.name}</CardDescription>
                                         </CardHeader>
                                         <CardContent className="flex justify-between items-center">
-                                            <div className="flex gap-4">
+                                            <div className="flex flex-col sm:flex-row gap-4">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                                                    <span>{bus.distance.toFixed(1)} km away</span>
+                                                </div>
                                                 <div className="flex items-center gap-2 text-sm">
                                                     <Users className="w-4 h-4 text-muted-foreground" />
                                                     <span>{bus.passengerCount} passengers</span>
@@ -93,7 +107,7 @@ const BusListPage = () => {
                                                     <span>{bus.type}</span>
                                                 </div>
                                             </div>
-                                            <Button onClick={() => handleSelectBus(bus.id)}>
+                                            <Button onClick={() => handleSelectBus(bus.id)} className="mt-4 sm:mt-0">
                                                 Track Bus <ArrowRight className="ml-2 h-4 w-4" />
                                             </Button>
                                         </CardContent>
