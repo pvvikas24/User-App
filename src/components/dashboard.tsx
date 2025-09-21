@@ -21,7 +21,11 @@ const CustomPolyline = ({ path, color }: { path: LatLng[]; color: string }) => {
     const map = useMap();
   
     useEffect(() => {
-      if (!map || path.length === 0) return;
+      if (!map || path.length < 2) {
+        const polyline = new google.maps.Polyline();
+        polyline.setMap(null);
+        return;
+      };
   
       const polyline = new google.maps.Polyline({
         path: path,
@@ -244,58 +248,53 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         clearInterval(simulationIntervalRef.current);
       }
     };
-  }, [selectedBusId, route, onboard, userLocation, destinationLocation, selectedBus, toast]);
+  }, [selectedBusId, route, onboard, userLocation, destinationLocation, selectedBus, toast, handleMissedBus]);
   
   const pathToUser = useMemo(() => {
-      if (!selectedBus || !userLocation || onboard) return [];
-      const route = routes.find(r => r.id === selectedBus.routeId);
-      if (!route) return [];
+    if (!selectedBus || !userLocation || !route) return [];
 
-      let busIndexOnPath = -1;
-      let minDistanceSoFar = Infinity;
-      route.path.forEach((p, index) => {
-          const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
-          if (dist < minDistanceSoFar) {
-              minDistanceSoFar = dist;
-              busIndexOnPath = index;
-          }
-      });
-      
+    let busIndexOnPath = -1;
+    let minDistanceSoFar = Infinity;
+    route.path.forEach((p, index) => {
+        const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
+        if (dist < minDistanceSoFar) {
+            minDistanceSoFar = dist;
+            busIndexOnPath = index;
+        }
+    });
 
-      const userStop = busStops.find(s => s.name === start);
-      if(!userStop) return [];
-      
-      let userStopPathIndex = -1;
-      let minUserStopDist = Infinity;
-      route.path.forEach((p, index) => {
+    const userStop = busStops.find(s => s.name === start);
+    if (!userStop) return [];
+
+    let userStopPathIndex = -1;
+    let minUserStopDist = Infinity;
+    route.path.forEach((p, index) => {
         const dist = getDistanceFromLatLonInKm(userStop.position.lat, userStop.position.lng, p.lat, p.lng);
         if (dist < minUserStopDist) {
             minUserStopDist = dist;
             userStopPathIndex = index;
         }
-      });
+    });
 
-      if (busIndexOnPath === -1 || userStopPathIndex === -1 || busIndexOnPath >= userStopPathIndex) return [];
-      
-      const currentPath = route.path.slice(busIndexOnPath, userStopPathIndex + 1);
-      return [selectedBus.position, ...currentPath];
+    if (busIndexOnPath === -1 || userStopPathIndex === -1 || busIndexOnPath >= userStopPathIndex) return [];
 
-  }, [selectedBus, userLocation, onboard, start]);
+    const currentPath = route.path.slice(busIndexOnPath, userStopPathIndex + 1);
+    // Prepend the current bus position to make the line start from the bus
+    return [selectedBus.position, ...currentPath];
+  }, [selectedBus, userLocation, route, start]);
   
   const pathFromUserToDestination = useMemo(() => {
-    if (!selectedBus || !destinationLocation || !onboard) return [];
-    const route = routes.find(r => r.id === selectedBus.routeId);
-    if (!route) return [];
+    if (!selectedBus || !destinationLocation || !route) return [];
   
     let busIndexOnPath = -1;
     let minDistanceSoFar = Infinity;
-      route.path.forEach((p, index) => {
-          const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
-          if (dist < minDistanceSoFar) {
-              minDistanceSoFar = dist;
-              busIndexOnPath = index;
-          }
-      });
+    route.path.forEach((p, index) => {
+        const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
+        if (dist < minDistanceSoFar) {
+            minDistanceSoFar = dist;
+            busIndexOnPath = index;
+        }
+    });
   
     const destStop = busStops.find(s => s.name === destination);
     if(!destStop) return [];
@@ -313,9 +312,12 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     if (busIndexOnPath === -1 || destStopPathIndex === -1 || busIndexOnPath >= destStopPathIndex) return [];
     
     const currentPath = route.path.slice(busIndexOnPath, destStopPathIndex + 1);
+    // Prepend the current bus position to make the line start from the bus
     return [selectedBus.position, ...currentPath];
   
-  }, [selectedBus, destinationLocation, onboard, destination]);
+  }, [selectedBus, destinationLocation, route, destination]);
+
+  const displayPath = onboard ? pathFromUserToDestination : pathToUser;
 
 
   return (
@@ -372,9 +374,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                                 <BusIcon className="w-8 h-8 text-primary transition-transform duration-300 ease-in-out hover:scale-125 cursor-pointer drop-shadow-lg" />
                                 </AdvancedMarker>
                             )}
-
-                            {!onboard && <CustomPolyline path={pathToUser} color="hsl(var(--primary))" />}
-                            {onboard && <CustomPolyline path={pathFromUserToDestination} color="#22c55e" />}
+                            
+                            <CustomPolyline path={displayPath} color={onboard ? "#22c55e" : "hsl(var(--primary))"} />
                         </Map>
                          {showOnboardPrompt && <OnboardPrompt onOnboard={handleOnboard} onCancel={handleCancelOnboard} />}
                     </APIProvider>
@@ -444,3 +445,5 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 };
 
 export default Dashboard;
+
+    
