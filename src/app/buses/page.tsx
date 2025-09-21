@@ -1,29 +1,82 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { initialBuses, routes, busStops } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Users, Wind, MapPin } from 'lucide-react';
+import { ArrowRight, Users, Wind, MapPin, IndianRupee } from 'lucide-react';
 import Logo from '@/components/logo';
 import { useTracking } from '@/contexts/TrackingContext';
-import type { Route } from '@/lib/types';
+import type { Route, Bus } from '@/lib/types';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
 
 const BusListPage = () => {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { setTrackingState } = useTracking();
+    
+    const [liveBuses, setLiveBuses] = useState<Bus[]>(initialBuses);
 
     const start = searchParams.get('start');
     const destination = searchParams.get('destination');
 
+    const startStopInfo = React.useMemo(() => busStops.find(s => s.name === start), [start]);
+
+    // Simulate bus movement for all buses
+    useEffect(() => {
+        const simulationInterval = setInterval(() => {
+            setLiveBuses(currentBuses => {
+                return currentBuses.map(bus => {
+                    const route = routes.find(r => r.id === bus.routeId);
+                    if (!route) return bus;
+
+                    // This is a simplified simulation. A real app would get this from a server.
+                    // For now, let's just move it along its path.
+                    let currentPathIndex = bus.currentPathIndex ?? 0;
+                    
+                    if (currentPathIndex >= route.path.length - 1) {
+                         // Reset bus to start of the route to keep simulation running
+                        return { ...bus, position: route.path[0], currentPathIndex: 0};
+                    }
+
+                    const nextPoint = route.path[currentPathIndex + 1];
+                    
+                    const AVERAGE_SPEED_KMPH = 60;
+                    const SIMULATION_TICK_SECONDS = 1;
+                    const distancePerTick = (AVERAGE_SPEED_KMPH * (SIMULATION_TICK_SECONDS / 3600));
+
+                    const distanceToNextPoint = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, nextPoint.lat, nextPoint.lng);
+
+                    let newPosition = { ...bus.position };
+
+                    if (distancePerTick >= distanceToNextPoint) {
+                        newPosition = nextPoint;
+                        currentPathIndex++;
+                    } else {
+                        const fraction = distancePerTick / distanceToNextPoint;
+                        newPosition = {
+                            lat: bus.position.lat + (nextPoint.lat - bus.position.lat) * fraction,
+                            lng: bus.position.lng + (nextPoint.lng - bus.position.lng) * fraction,
+                        };
+                    }
+
+                    return {
+                        ...bus,
+                        position: newPosition,
+                        currentPathIndex: currentPathIndex,
+                    };
+                });
+            });
+        }, 1000); // Update every second
+
+        return () => clearInterval(simulationInterval);
+    }, []);
+
     const availableBuses = React.useMemo(() => {
         if (!start || !destination) return [];
         
-        const startStopInfo = busStops.find(s => s.name === start);
         const destinationStopInfo = busStops.find(s => s.name === destination);
         
         if (!startStopInfo || !destinationStopInfo) return [];
@@ -36,15 +89,20 @@ const BusListPage = () => {
 
         if (relevantRoutes.length === 0) return [];
 
-        return initialBuses.filter(bus => {
+        return liveBuses.filter(bus => {
             const busRoute = relevantRoutes.find(r => r.id === bus.routeId);
             if (!busRoute) return false;
 
-            const busRouteStops = busRoute.stops.map(stopId => busStops.find(s => s.id === stopId)?.name);
-            const busCurrentStopIndex = busRouteStops.indexOf(busStops.find(s => s.position.lat === bus.position.lat && s.position.lng === bus.position.lng)?.name);
-            const userStartIndex = busRouteStops.indexOf(start);
+            // Find the index of the bus's current position on its route path
+            const busCurrentStopIndex = busRoute.stops.map(stopId => busStops.find(s => s.id === stopId)!).findIndex(stop => {
+                return getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, stop.position.lat, stop.position.lng) < 1; // within 1km of a stop
+            });
 
+            const userStartIndex = busRoute.stops.indexOf(startStopInfo.id);
+
+            // Show bus if it's before the user's starting stop
             return busCurrentStopIndex <= userStartIndex;
+
         }).map(bus => {
             const distance = getDistanceFromLatLonInKm(
                 startStopInfo.position.lat,
@@ -58,11 +116,11 @@ const BusListPage = () => {
                 distance,
             }
         }).sort((a, b) => a.distance - b.distance);
-    }, [start, destination]);
+    }, [start, destination, liveBuses, startStopInfo]);
 
-    const handleSelectBus = (busId: string) => {
+    const handleSelectBus = (busId: string, currentLat: number, currentLng: number, currentPathIndex: number) => {
         setTrackingState('tracking');
-        router.push(`/tracking/${busId}?start=${start}&destination=${destination}`);
+        router.push(`/tracking/${busId}?start=${start}&destination=${destination}&lat=${currentLat}&lng=${currentLng}&pathIndex=${currentPathIndex}`);
     };
 
     const handleGoBack = () => {
@@ -81,7 +139,7 @@ const BusListPage = () => {
                         <CardHeader>
                             <CardTitle>Available Buses</CardTitle>
                             <CardDescription>
-                                Showing buses from <span className="font-semibold text-primary">{start}</span> to <span className="font-semibold text-primary">{destination}</span>.
+                                Showing buses from <span className="font-semibold text-primary">{start}</span> to <span className="font-semibold text-primary">{destination}</span>. Distances are updated live.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -93,7 +151,7 @@ const BusListPage = () => {
                                             <CardDescription>{(bus.routeDetails as Route)?.name}</CardDescription>
                                         </CardHeader>
                                         <CardContent className="flex justify-between items-center">
-                                            <div className="flex flex-col sm:flex-row gap-4">
+                                            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-4">
                                                 <div className="flex items-center gap-2 text-sm">
                                                     <MapPin className="w-4 h-4 text-muted-foreground" />
                                                     <span>{bus.distance.toFixed(1)} km away</span>
@@ -106,8 +164,12 @@ const BusListPage = () => {
                                                     <Wind className="w-4 h-4 text-muted-foreground" />
                                                     <span>{bus.type}</span>
                                                 </div>
+                                                <div className="flex items-center gap-2 text-sm font-semibold">
+                                                    <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                                                    <span>{bus.ticketPrice}</span>
+                                                </div>
                                             </div>
-                                            <Button onClick={() => handleSelectBus(bus.id)} className="mt-4 sm:mt-0">
+                                            <Button onClick={() => handleSelectBus(bus.id, bus.position.lat, bus.position.lng, bus.currentPathIndex ?? 0)} className="mt-4 sm:mt-0">
                                                 Track Bus <ArrowRight className="ml-2 h-4 w-4" />
                                             </Button>
                                         </CardContent>
@@ -115,7 +177,7 @@ const BusListPage = () => {
                                 ))
                             ) : (
                                 <p className="text-center text-muted-foreground py-8">
-                                    No direct buses found for the selected route.
+                                    No direct buses found for the selected route. They may be ahead of your stop.
                                 </p>
                             )}
                         </CardContent>

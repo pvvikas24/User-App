@@ -46,33 +46,41 @@ export const initialBuses: Bus[] = [
   {
     id: 'PB01A1234',
     routeId: 'route1',
-    position: { lat: 30.7419, lng: 76.7762 }, // at Chandigarh
+    position: { lat: 30.7419, lng: 76.7762 },
+    currentPathIndex: 0,
     destination: 'Amritsar',
     type: 'A/C',
     passengerCount: 25,
+    ticketPrice: 350,
   },
   {
     id: 'PB02B5678',
     routeId: 'route1',
-    position: { lat: 30.9660, lng: 76.5250 }, // at Ropar
+    position: { lat: 30.9660, lng: 76.5250 },
+    currentPathIndex: 3,
     destination: 'Amritsar',
     type: 'Non-A/C',
     passengerCount: 40,
+    ticketPrice: 280,
   },
   {
     id: 'PB03C9101',
     routeId: 'route1',
-    position: { lat: 31.3260, lng: 75.5762 }, // at Jalandhar
+    position: { lat: 31.3260, lng: 75.5762 },
+    currentPathIndex: 7,
     destination: 'Chandigarh', // This bus is going the other way
     type: 'A/C',
     passengerCount: 15,
+    ticketPrice: 350,
   },
   {
     id: 'PB04D4321',
     routeId: 'route2',
-    position: { lat: 30.7419, lng: 76.7762 }, // at Chandigarh
+    position: { lat: 30.7419, lng: 76.7762 },
+    currentPathIndex: 0,
     destination: 'Ludhiana',
     type: 'A/C',
     passengerCount: 18,
+    ticketPrice: 150,
   }
 ];

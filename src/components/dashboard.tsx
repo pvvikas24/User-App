@@ -5,13 +5,13 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { APIProvider, Map, AdvancedMarker, useMap, Pin } from '@vis.gl/react-google-maps';
 import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
 import { initialBuses, routes, busStops } from '@/lib/data';
-import type { Bus, LatLng, Route } from '@/lib/types';
+import type { Bus, LatLng } from '@/lib/types';
 import Logo from './logo';
 import BusIcon from './icons/bus-icon';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
 import { Button } from './ui/button';
-import { ArrowLeft, Users, Clock, MapPin, Route as RouteIcon, Wind } from 'lucide-react';
+import { ArrowLeft, Users, Clock, MapPin, Route as RouteIcon, Wind, IndianRupee } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
@@ -45,6 +45,8 @@ type DashboardProps = {
     selectedBusId: string;
     userStartLocation: string;
     userDestination: string;
+    initialBusPosition: LatLng;
+    initialPathIndex: number;
 }
 
 const OnboardPrompt = ({ onOnboard, onCancel }: { onOnboard: () => void; onCancel: () => void; }) => (
@@ -62,12 +64,12 @@ const OnboardPrompt = ({ onOnboard, onCancel }: { onOnboard: () => void; onCance
     </div>
 );
 
-const GetDownPrompt = ({ onGetDown }: { onGetDown: () => void; }) => (
+const GetDownPrompt = ({ onGetDown, destination }: { onGetDown: () => void; destination: string; }) => (
     <div className="absolute bottom-4 right-4 z-20">
         <Card className="bg-background/90 backdrop-blur-sm border-primary/50 shadow-2xl">
             <CardHeader>
                 <CardTitle>Destination Reached!</CardTitle>
-                <CardDescription>You have arrived at {useSearchParams().get('destination')}.</CardDescription>
+                <CardDescription>You have arrived at {destination}.</CardDescription>
             </CardHeader>
             <CardFooter className="flex justify-end">
                 <Button onClick={onGetDown}>Get Down</Button>
@@ -77,23 +79,23 @@ const GetDownPrompt = ({ onGetDown }: { onGetDown: () => void; }) => (
 );
 
 
-const Dashboard = ({ selectedBusId }: DashboardProps) => {
+const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialBusPosition, initialPathIndex }: DashboardProps) => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { setTrackingState } = useTracking();
-
-  const start = searchParams.get('start');
-  const destination = searchParams.get('destination');
   const { toast } = useToast();
 
-  const [buses, setBuses] = useState<Bus[]>(initialBuses);
+  const [buses, setBuses] = useState<Bus[]>(() => 
+    initialBuses.map(b => 
+        b.id === selectedBusId ? { ...b, position: initialBusPosition, currentPathIndex: initialPathIndex } : b
+    )
+  );
+
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
   const [destinationLocation, setDestinationLocation] = useState<LatLng | null>(null);
 
   const initialCenter = useMemo(() => {
-    const bus = initialBuses.find(b => b.id === selectedBusId);
-    return bus ? bus.position : { lat: 31.1471, lng: 75.3412 }; // Default to Punjab center
-  }, [selectedBusId]);
+    return initialBusPosition;
+  }, [initialBusPosition]);
 
   const [status, setStatus] = useState('Bus is en-route to your location');
   const [onboard, setOnboard] = useState(false);
@@ -109,9 +111,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 
   const onboardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const currentPathIndexRef = useRef(0);
   
-  const AVERAGE_SPEED_KMPH = 1000; // Average speed of the bus in km/h
+  const AVERAGE_SPEED_KMPH = 1000; 
 
   const handleGoBack = () => {
     setTrackingState('authenticated');
@@ -133,9 +134,9 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   
 
   useEffect(() => {
-    let targetLocation = null;
+    let targetLocation: LatLng | null = null;
     if (tripFinishedForUser) {
-        targetLocation = route?.path[route.path.length-1] ?? null;
+        targetLocation = route?.path[route.path.length - 1] ?? null;
     } else {
         targetLocation = onboard ? destinationLocation : userLocation;
     }
@@ -155,11 +156,11 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   }, [selectedBus, userLocation, destinationLocation, onboard, tripFinishedForUser, route]);
 
   useEffect(() => {
-    const startStop = busStops.find(s => s.name === start);
-    const destStop = busStops.find(s => s.name === destination);
+    const startStop = busStops.find(s => s.name === userStartLocation);
+    const destStop = busStops.find(s => s.name === userDestination);
     if(startStop) setUserLocation(startStop.position);
     if(destStop) setDestinationLocation(destStop.position);
-  }, [start, destination]);
+  }, [userStartLocation, userDestination]);
 
 
   useEffect(() => {
@@ -196,7 +197,6 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     setStatus('Bus is continuing to its final destination.');
     toast({ title: "Trip Complete!", description: "Hope you had a pleasant journey."});
     
-    // Allow bus to continue, then redirect user.
     setTimeout(() => {
         setTrackingState('authenticated');
         router.push('/');
@@ -206,42 +206,9 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   useEffect(() => {
     if (!route || !userLocation || !destinationLocation) return;
   
-    let closestPathIndex = -1;
-    let minDistance = Infinity;
+    const currentPathIndexRef = { current: initialPathIndex };
 
-    route.path.forEach((point, index) => {
-        const d = getDistanceFromLatLonInKm(initialBuses.find(b => b.id === selectedBusId)!.position.lat, initialBuses.find(b => b.id === selectedBusId)!.position.lng, point.lat, point.lng);
-        if (d < minDistance) {
-            minDistance = d;
-            closestPathIndex = index;
-        }
-    });
-
-    const userStopInfo = busStops.find(s => s.name === start);
-    let userStopIndexOnPath = -1;
-    if (userStopInfo) {
-      let minUserStopDistance = Infinity;
-      route.path.forEach((point, index) => {
-        const d = getDistanceFromLatLonInKm(userStopInfo.position.lat, userStopInfo.position.lng, point.lat, point.lng);
-        if (d < minUserStopDistance) {
-          minUserStopDistance = d;
-          userStopIndexOnPath = index;
-        }
-      });
-    }
-
-    if (closestPathIndex >= userStopIndexOnPath && userStopIndexOnPath > 0) {
-      closestPathIndex = Math.max(0, userStopIndexOnPath - 10);
-      const startPosition = route.path[closestPathIndex];
-      setBuses(prevBuses => prevBuses.map(b => b.id === selectedBusId ? {...b, position: startPosition} : b));
-    } else if (closestPathIndex === -1) {
-      closestPathIndex = 0;
-    }
-    
-    currentPathIndexRef.current = closestPathIndex;
-  
     simulationIntervalRef.current = setInterval(() => {
-      let currentPathIndex = currentPathIndexRef.current;
       setBuses(prevBuses => {
         const currentBus = prevBuses.find(b => b.id === selectedBusId);
         if (!currentBus) return prevBuses;
@@ -259,22 +226,23 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         const distancePerTick = (AVERAGE_SPEED_KMPH * (simulationTickSeconds / 3600));
 
         if (distanceToFinalTarget < distancePerTick * 2) {
+             if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+
             if (tripFinishedForUser) {
-                 if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
                  return prevBuses;
             }
 
             if (!onboard) {
                 setStatus('Bus has arrived at your location.');
                 setShowOnboardPrompt(true);
-                if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
             } else {
                 setStatus('You have arrived at your destination.');
                 setShowGetDownPrompt(true);
-                if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
             }
             return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: tickTargetLocation } : b);
         }
+        
+        let currentPathIndex = currentBus.currentPathIndex ?? currentPathIndexRef.current;
 
         if (currentPathIndex >= route.path.length - 1) {
           if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
@@ -301,8 +269,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
             totalDistanceToTravel = 0;
           }
         }
-        currentPathIndexRef.current = currentPathIndex;
-        return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: newPosition } : b);
+        
+        return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: newPosition, currentPathIndex } : b);
       });
     }, 100); 
   
@@ -311,61 +279,47 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         clearInterval(simulationIntervalRef.current);
       }
     };
-  }, [selectedBusId, route, onboard, userLocation, destinationLocation, toast, handleMissedBus, start, tripFinishedForUser]);
+  }, [selectedBusId, route, onboard, userLocation, destinationLocation, toast, handleMissedBus, tripFinishedForUser, initialPathIndex]);
   
   const displayPath = useMemo(() => {
     if (!selectedBus || !route) return [];
 
-    let currentBusIndexOnPath = -1;
-    let minBusDist = Infinity;
+    const currentBusIndexOnPath = selectedBus.currentPathIndex ?? initialPathIndex;
+
+    let targetPathIndex = -1;
+    let targetPosition: LatLng | null = null;
+    
+    if (tripFinishedForUser) {
+        targetPathIndex = route.path.length - 1;
+        targetPosition = route.path[targetPathIndex];
+    } else if (onboard) {
+        targetPosition = destinationLocation;
+    } else {
+        targetPosition = userLocation;
+    }
+    
+    if (!targetPosition) return [];
+
+    let minTargetDist = Infinity;
     route.path.forEach((p, index) => {
-        const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
-        if (dist < minBusDist) {
-            minBusDist = dist;
-            currentBusIndexOnPath = index;
+        const dist = getDistanceFromLatLonInKm(targetPosition!.lat, targetPosition!.lng, p.lat, p.lng);
+        if (dist < minTargetDist) {
+            minTargetDist = dist;
+            targetPathIndex = index;
         }
     });
 
-    if (currentBusIndexOnPath === -1) return [];
-
-    let targetPathIndex = -1;
-
-    if (tripFinishedForUser) {
-        targetPathIndex = route.path.length - 1;
-    } else if (onboard) {
-        const destStop = busStops.find(s => s.name === destination);
-        if (!destStop) return [];
-        let minDestStopDist = Infinity;
-        route.path.forEach((p, index) => {
-            const dist = getDistanceFromLatLonInKm(destStop.position.lat, destStop.position.lng, p.lat, p.lng);
-            if(dist < minDestStopDist) {
-                minDestStopDist = dist;
-                targetPathIndex = index;
-            }
-        });
-    } else {
-        const userStop = busStops.find(s => s.name === start);
-        if (!userStop) return [];
-        let minUserStopDist = Infinity;
-        route.path.forEach((p, index) => {
-            const dist = getDistanceFromLatLonInKm(userStop.position.lat, userStop.position.lng, p.lat, p.lng);
-            if (dist < minUserStopDist) {
-                minUserStopDist = dist;
-                targetPathIndex = index;
-            }
-        });
-    }
-    
     if (targetPathIndex === -1 || currentBusIndexOnPath > targetPathIndex) return [selectedBus.position];
     
     const remainingPath = route.path.slice(currentBusIndexOnPath, targetPathIndex + 1);
     
+    // Prepend the current bus position to the start of the path for a smooth line
     if (getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, remainingPath[0].lat, remainingPath[0].lng) > 0.01) {
         return [selectedBus.position, ...remainingPath];
     }
 
     return remainingPath;
-}, [selectedBus, route, onboard, start, destination, tripFinishedForUser]);
+}, [selectedBus, route, onboard, userLocation, destinationLocation, tripFinishedForUser, initialPathIndex]);
 
 
   return (
@@ -391,8 +345,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                     <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
                         <Map
                             mapId="punjab-roadways-map"
-                            defaultCenter={initialCenter}
-                            defaultZoom={12}
+                            center={selectedBus?.position || initialCenter}
+                            zoom={12}
                             disableDefaultUI={false}
                             gestureHandling={'greedy'}
                             className="h-full w-full"
@@ -408,7 +362,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                                 </AdvancedMarker>
                             )}
 
-                            {destinationLocation && !tripFinishedForUser && (
+                            {destinationLocation && (
                                 <AdvancedMarker position={destinationLocation} title="Your Destination">
                                 <Pin background={'#4ade80'} glyphColor={'#000000'} borderColor={'#16a34a'} />
                                 </AdvancedMarker>
@@ -426,7 +380,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                             <CustomPolyline path={displayPath} color={onboard ? "#22c55e" : "hsl(var(--primary))"} />
                         </Map>
                          {showOnboardPrompt && <OnboardPrompt onOnboard={handleOnboard} onCancel={handleCancelOnboard} />}
-                         {showGetDownPrompt && <GetDownPrompt onGetDown={handleGetDown} />}
+                         {showGetDownPrompt && <GetDownPrompt onGetDown={handleGetDown} destination={userDestination} />}
                     </APIProvider>
                 </TabsContent>
                 <TabsContent value="details">
@@ -471,6 +425,13 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                                             <p className="font-bold">{selectedBus.type}</p>
                                         </div>
                                     </div>
+                                     <div className="flex items-center gap-2">
+                                        <IndianRupee className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <p className="text-muted-foreground">Ticket Price</p>
+                                            <p className="font-bold">{selectedBus.ticketPrice}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -479,8 +440,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                                 <CardTitle>Your Journey</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-2">
-                                <p><span className="font-semibold">From:</span> {start}</p>
-                                <p><span className="font-semibold">To:</span> {destination}</p>
+                                <p><span className="font-semibold">From:</span> {userStartLocation}</p>
+                                <p><span className="font-semibold">To:</span> {userDestination}</p>
                             </CardContent>
                         </Card>
                      </div>
@@ -494,5 +455,3 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 };
 
 export default Dashboard;
-
-    

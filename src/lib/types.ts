@@ -20,7 +20,9 @@ export interface Bus {
   id: string;
   routeId: string;
   position: LatLng;
+  currentPathIndex?: number;
   destination: string;
   type: 'A/C' | 'Non-A/C';
   passengerCount: number;
+  ticketPrice: number;
 }
