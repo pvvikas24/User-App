@@ -6,11 +6,12 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { initialBuses, routes, busStops } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Users, Wind, MapPin, IndianRupee } from 'lucide-react';
+import { ArrowRight, Users, Wind, MapPin, IndianRupee, Wifi } from 'lucide-react';
 import Logo from '@/components/logo';
 import { useTracking } from '@/contexts/TrackingContext';
 import type { Route, Bus } from '@/lib/types';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const BusListPage = () => {
     const searchParams = useSearchParams();
@@ -129,6 +130,17 @@ const BusListPage = () => {
         router.push('/');
     }
 
+    const getCrowdBadgeVariant = (crowd: 'low' | 'medium' | 'high') => {
+        switch (crowd) {
+            case 'low':
+                return 'default';
+            case 'medium':
+                return 'secondary';
+            case 'high':
+                return 'destructive';
+        }
+    }
+
     return (
         <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
             <header className="mb-8">
@@ -148,7 +160,10 @@ const BusListPage = () => {
                                 availableBuses.map(bus => (
                                     <Card key={bus.id} className="bg-secondary/50">
                                         <CardHeader>
-                                            <CardTitle className="text-xl">Bus #{bus.id}</CardTitle>
+                                            <div className="flex justify-between items-center">
+                                                <CardTitle className="text-xl">Bus #{bus.id}</CardTitle>
+                                                <Badge variant={getCrowdBadgeVariant(bus.crowd)} className="capitalize">{bus.crowd} Crowd</Badge>
+                                            </div>
                                             <CardDescription>{(bus.routeDetails as Route)?.name}</CardDescription>
                                         </CardHeader>
                                         <CardContent className="flex justify-between items-center">
@@ -160,10 +175,6 @@ const BusListPage = () => {
                                                 <div className="flex items-center gap-2 text-sm">
                                                     <Users className="w-4 h-4 text-muted-foreground" />
                                                     <span>{bus.passengerCount} passengers</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <Wind className="w-4 h-4 text-muted-foreground" />
-                                                    <span>{bus.type}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-sm font-semibold">
                                                     <IndianRupee className="w-4 h-4 text-muted-foreground" />

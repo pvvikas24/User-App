@@ -22,7 +22,7 @@ export interface Bus {
   position: LatLng;
   currentPathIndex?: number;
   destination: string;
-  type: 'A/C' | 'Non-A/C';
   passengerCount: number;
   ticketPrice: number;
+  crowd: 'low' | 'medium' | 'high';
 }

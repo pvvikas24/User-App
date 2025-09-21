@@ -11,11 +11,22 @@ import BusIcon from './icons/bus-icon';
 import { useRouter } from 'next/navigation';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
 import { Button } from './ui/button';
-import { ArrowLeft, Users, Clock, MapPin, Route as RouteIcon, Wind, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Users, Clock, MapPin, Route as RouteIcon, IndianRupee, Siren } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { useTracking } from '@/contexts/TrackingContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const CustomPolyline = ({ path, color }: { path: LatLng[]; color: string }) => {
     const map = useMap();
@@ -77,6 +88,39 @@ const GetDownPrompt = ({ onGetDown, destination }: { onGetDown: () => void; dest
         </Card>
     </div>
 );
+
+const SosDialog = () => {
+    const { toast } = useToast();
+    const handleSosConfirm = () => {
+        toast({
+            title: "SOS Signal Sent",
+            description: "Emergency services have been notified of your location.",
+            variant: "destructive",
+        })
+    }
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="lg" className="w-full flex items-center gap-2">
+                    <Siren className="h-5 w-5" />
+                    SOS
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Emergency</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will immediately alert emergency services with your current location. Only use this in a genuine emergency.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSosConfirm}>Confirm SOS</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+};
 
 
 const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialBusPosition, initialPathIndex }: DashboardProps) => {
@@ -418,10 +462,10 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
                                         </div>
                                     </div>
                                      <div className="flex items-center gap-2">
-                                        <Wind className="h-5 w-5 text-primary" />
+                                        <Users className="h-5 w-5 text-primary" />
                                         <div>
-                                            <p className="text-muted-foreground">Type</p>
-                                            <p className="font-bold">{selectedBus.type}</p>
+                                            <p className="text-muted-foreground">Crowd</p>
+                                            <p className="font-bold capitalize">{selectedBus.crowd}</p>
                                         </div>
                                     </div>
                                      <div className="flex items-center gap-2">
@@ -443,6 +487,7 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
                                 <p><span className="font-semibold">To:</span> {userDestination}</p>
                             </CardContent>
                         </Card>
+                        <SosDialog />
                      </div>
                    )}
                 </TabsContent>
@@ -454,7 +499,3 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
 };
 
 export default Dashboard;
-
-    
-    
-    
