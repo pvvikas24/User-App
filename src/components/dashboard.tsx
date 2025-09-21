@@ -12,6 +12,7 @@ import BusDetailsCard from './bus-details-card';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
 import { Button } from './ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { ArrowLeft } from 'lucide-react';
 
 const CustomPolyline = ({ path, color }: { path: LatLng[]; color: string }) => {
@@ -61,6 +62,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 
   const [status, setStatus] = useState('Bus is en-route to your location');
   const [onboard, setOnboard] = useState(false);
+  const [showOnboardPrompt, setShowOnboardPrompt] = useState(false);
 
   const selectedBus = useMemo(() => buses.find(b => b.id === selectedBusId), [buses, selectedBusId]);
 
@@ -72,7 +74,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   }, [start, destination]);
 
   useEffect(() => {
-    if (!userLocation || !selectedBus) return;
+    if (!userLocation || !selectedBus || onboard) return;
 
     const distanceToUser = getDistanceFromLatLonInKm(
         selectedBus.position.lat,
@@ -81,12 +83,17 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         userLocation.lng
     );
 
-    if(distanceToUser < 1 && !onboard) {
-        setOnboard(true);
-        setStatus('You are onboard. Heading to destination.');
+    if(distanceToUser < 1) {
+        setShowOnboardPrompt(true);
     }
 
   }, [selectedBus, userLocation, onboard]);
+
+  const handleOnboard = () => {
+    setOnboard(true);
+    setShowOnboardPrompt(false);
+    setStatus('You are onboard. Heading to destination.');
+  }
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -119,7 +126,13 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 
 
                 // For simulation, we always move forward. In a real app, you'd check direction.
-                const nextPointIndex = (currentPointIndex + 1) % route.path.length;
+                const nextPointIndex = (currentPointIndex + 1);
+                
+                // Stop simulation if bus reaches the end of the path
+                if (nextPointIndex >= route.path.length) {
+                    clearInterval(interval);
+                    return bus;
+                }
                 
                 // Stop simulation if bus reaches the destination
                 const destStop = busStops.find(s => s.name === destination);
@@ -127,6 +140,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                     const destPathIndex = route.path.findIndex(p => p.lat === destStop.position.lat && p.lng === destStop.position.lng);
                     if (currentPointIndex === destPathIndex) {
                         clearInterval(interval);
+                        setStatus('You have arrived at your destination.');
                         return bus;
                     }
                 }
@@ -134,7 +148,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 return { ...bus, position: route.path[nextPointIndex] };
             })
         );
-    }, 2000); 
+    }, 5000); 
 
     return () => clearInterval(interval);
   }, [selectedBus, destination]);
@@ -185,7 +199,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
           gestureHandling={'greedy'}
           className="h-full w-full"
         >
-          {userLocation && (
+          {userLocation && !onboard && (
             <AdvancedMarker position={userLocation} title="Your Location">
                <Pin><div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg"></div></Pin>
             </AdvancedMarker>
@@ -230,6 +244,23 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 status={status}
             />
         )}
+
+        <AlertDialog open={showOnboardPrompt}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>The bus has arrived!</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Are you ready to board the bus to continue your journey?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={handleOnboard}>
+                        Onboard
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
 
       </div>
     </APIProvider>
