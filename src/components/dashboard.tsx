@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -113,7 +114,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 return { ...bus, position: route.path[nextPointIndex] };
             })
         );
-    }, 5000);
+    }, 2000); // Increased speed of simulation
 
     return () => clearInterval(interval);
   }, [selectedBus]);
@@ -125,8 +126,10 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 
       const busIndex = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
       // This is a simplified logic, a real app would need to find the closest point on path
-      const userIndexOnPath = route.stops.indexOf(busStops.find(s => s.name === start)?.id ?? '');
-      const userStopPathIndex = route.path.findIndex(p => p.lat === busStops.find(s => s.id === route.stops[userIndexOnPath])?.position.lat);
+      const userStop = busStops.find(s => s.name === start);
+      if(!userStop) return [];
+      const userIndexOnPath = route.stops.indexOf(userStop.id);
+      const userStopPathIndex = route.path.findIndex(p => p.lat === userStop.position.lat && p.lng === userStop.position.lng);
 
       if (busIndex === -1 || userStopPathIndex === -1 || busIndex >= userStopPathIndex) return [];
       return route.path.slice(busIndex, userStopPathIndex + 1);
@@ -134,21 +137,20 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   }, [selectedBus, userLocation, onboard, start]);
   
   const pathFromUserToDestination = useMemo(() => {
-    if (!selectedBus || !userLocation || !destinationLocation || !onboard) return [];
+    if (!selectedBus || !destinationLocation || !onboard) return [];
     const route = routes.find(r => r.id === selectedBus.routeId);
     if (!route) return [];
   
-    // Bus is now at user's location
     const busIndex = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
   
-    // This is a simplified logic
-    const destIndexOnPath = route.stops.indexOf(busStops.find(s => s.name === destination)?.id ?? '');
-    const destStopPathIndex = route.path.findIndex(p => p.lat === busStops.find(s => s.id === route.stops[destIndexOnPath])?.position.lat);
+    const destStop = busStops.find(s => s.name === destination);
+    if(!destStop) return [];
+    const destStopPathIndex = route.path.findIndex(p => p.lat === destStop.position.lat && p.lng === destStop.position.lng);
   
     if (busIndex === -1 || destStopPathIndex === -1 || busIndex >= destStopPathIndex) return [];
     return route.path.slice(busIndex, destStopPathIndex + 1);
   
-  }, [selectedBus, userLocation, destinationLocation, onboard, destination]);
+  }, [selectedBus, destinationLocation, onboard, destination]);
 
 
   return (
@@ -183,8 +185,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
             </AdvancedMarker>
           )}
 
-          <CustomPolyline path={pathToUser} color="hsl(var(--primary))" />
-          <CustomPolyline path={pathFromUserToDestination} color="#22c55e" />
+          {!onboard && <CustomPolyline path={pathToUser} color="hsl(var(--primary))" />}
+          {onboard && <CustomPolyline path={pathFromUserToDestination} color="#22c55e" />}
 
         </Map>
         
@@ -202,7 +204,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         {selectedBus && (
             <BusDetailsCard 
                 bus={selectedBus}
-                userLocation={userLocation}
+                userLocation={onboard ? destinationLocation : userLocation}
                 onClose={() => router.back()}
                 status={status}
             />

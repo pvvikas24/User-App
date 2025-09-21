@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -32,7 +33,7 @@ const BusDetailsCard = ({ bus, userLocation, onClose, status }: BusDetailsCardPr
       const etaHours = dist / AVERAGE_SPEED_KMPH;
       setEta(Math.round(etaHours * 60));
     }
-  }, [bus, userLocation]);
+  }, [bus, userLocation, bus.position]);
 
   if (!bus) return null;
 
@@ -59,7 +60,7 @@ const BusDetailsCard = ({ bus, userLocation, onClose, status }: BusDetailsCardPr
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-muted-foreground">ETA to You</p>
+                <p className="text-muted-foreground">ETA</p>
                 <p className="font-bold">{eta !== null ? `${eta} mins` : 'Calculating...'}</p>
               </div>
             </div>
