@@ -194,7 +194,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         const distanceToFinalTarget = getDistanceFromLatLonInKm(currentBus.position.lat, currentBus.position.lng, tickTargetLocation.lat, tickTargetLocation.lng);
 
         const simulationTickSeconds = 1;
-        const distancePerTick = (AVERAGE_SPEED_KMPH * (simulationTickSeconds / 3600)) * 2; // Multiplier for simulation speed
+        const distancePerTick = (AVERAGE_SPEED_KMPH * (simulationTickSeconds / 3600)) * 8; // Multiplier for simulation speed
 
         if (distanceToFinalTarget < distancePerTick) {
             if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
