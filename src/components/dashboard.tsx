@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap, Pin } from '@vis.gl/react-google-maps';
 import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
 import { initialBuses, routes, busStops } from '@/lib/data';
@@ -88,9 +88,10 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   const [distance, setDistance] = useState<number | null>(null);
   const [eta, setEta] = useState<number | null>(null);
 
-  const onboardTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const routePathIndexRef = React.useRef<number>(0);
-  const simulationIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const onboardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const AVERAGE_SPEED_KMPH = 40; // Average speed of the bus in km/h
 
   const handleMissedBus = useCallback(() => {
     setShowOnboardPrompt(false);
@@ -102,7 +103,6 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     setTimeout(() => router.push('/'), 2000);
   },[router, toast]);
   
-  const AVERAGE_SPEED_KMPH = 30;
 
   useEffect(() => {
     const targetLocation = onboard ? destinationLocation : userLocation;
@@ -114,7 +114,6 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         selectedBus.position.lng
       );
       setDistance(dist);
-
       
       const etaHours = dist / AVERAGE_SPEED_KMPH;
       setEta(Math.round(etaHours * 60));
@@ -128,32 +127,16 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     if(destStop) setDestinationLocation(destStop.position);
   }, [start, destination]);
 
+
   useEffect(() => {
-    if (!userLocation || !selectedBus || onboard) return;
-
-    const distanceToUser = getDistanceFromLatLonInKm(
-        selectedBus.position.lat,
-        selectedBus.position.lng,
-        userLocation.lat,
-        userLocation.lng
-    );
-
-    if(distanceToUser < 0.1 && !showOnboardPrompt) { // smaller threshold for arrival
-        setStatus('Bus has arrived at your location.');
-        setShowOnboardPrompt(true);
+    if (showOnboardPrompt) {
+        onboardTimeoutRef.current = setTimeout(handleMissedBus, 5000);
     }
-
-  }, [selectedBus, userLocation, onboard, showOnboardPrompt]);
-
-  useEffect(() => {
-      if (showOnboardPrompt) {
-          onboardTimeoutRef.current = setTimeout(handleMissedBus, 5000);
-      }
-      return () => {
-          if (onboardTimeoutRef.current) {
-              clearTimeout(onboardTimeoutRef.current);
-          }
-      };
+    return () => {
+        if (onboardTimeoutRef.current) {
+            clearTimeout(onboardTimeoutRef.current);
+        }
+    };
   }, [showOnboardPrompt, handleMissedBus]);
 
   const handleOnboard = () => {
@@ -174,70 +157,101 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   }
 
   useEffect(() => {
-    const moveBus = () => {
-        if (!selectedBus || !route) return;
-        
-        const currentPathIndex = routePathIndexRef.current;
-        if (currentPathIndex >= route.path.length - 1) {
+    if (!route || !selectedBus) return;
+  
+    // Find the bus's starting position on the route path
+    let closestPathIndex = 0;
+    let minDistance = Infinity;
+    route.path.forEach((point, index) => {
+        const d = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, point.lat, point.lng);
+        if (d < minDistance) {
+            minDistance = d;
+            closestPathIndex = index;
+        }
+    });
+  
+    let currentPathIndex = closestPathIndex;
+  
+    simulationIntervalRef.current = setInterval(() => {
+      setBuses(prevBuses => {
+        const currentBus = prevBuses.find(b => b.id === selectedBusId);
+        if (!currentBus) return prevBuses;
+  
+        // Determine the target for this tick
+        const tickTargetLocation = onboard ? destinationLocation : userLocation;
+
+        if (!tickTargetLocation) return prevBuses;
+
+        // Check for arrival
+        const distanceToFinalTarget = getDistanceFromLatLonInKm(currentBus.position.lat, currentBus.position.lng, tickTargetLocation.lat, tickTargetLocation.lng);
+
+        const simulationTickSeconds = 1;
+        const distancePerTick = (AVERAGE_SPEED_KMPH * (simulationTickSeconds / 3600)) * 5; // Multiplier for simulation speed
+
+        if (distanceToFinalTarget < distancePerTick) {
             if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-            return;
-        }
 
-        const targetPoint = route.path[currentPathIndex + 1];
-
-        setBuses(prevBuses =>
-            prevBuses.map(bus => {
-                if (bus.id !== selectedBus.id) return bus;
-
-                const distanceToTarget = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, targetPoint.lat, targetPoint.lng);
-                
-                const intervalSeconds = 2;
-                const distanceCovered = (AVERAGE_SPEED_KMPH * (intervalSeconds / 3600));
-
-                if (distanceToTarget <= distanceCovered) {
-                    routePathIndexRef.current++;
-                    
-                    if (onboard) {
-                        const destinationStop = busStops.find(s => s.name === destination);
-                        if (destinationStop && routePathIndexRef.current === route.path.findIndex(p => p.lat === destinationStop.position.lat && p.lng === destinationStop.position.lng)) {
-                            if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-                            setStatus('You have arrived at your destination.');
-                        }
-                    }
-                    
-                    return { ...bus, position: targetPoint };
-                } else {
-                    const fraction = distanceCovered / distanceToTarget;
-                    const newLat = bus.position.lat + (targetPoint.lat - bus.position.lat) * fraction;
-                    const newLng = bus.position.lng + (targetPoint.lng - bus.position.lng) * fraction;
-                    return { ...bus, position: { lat: newLat, lng: newLng } };
-                }
-            })
-        );
-    };
-    
-    // Set initial index for the bus on the path
-    if (route && selectedBus) {
-        let closestIndex = 0;
-        let minDistance = Infinity;
-        route.path.forEach((p, index) => {
-            const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
-            if (dist < minDistance) {
-                minDistance = dist;
-                closestIndex = index;
+            if (!onboard) {
+                setStatus('Bus has arrived at your location.');
+                setShowOnboardPrompt(true);
+            } else {
+                setStatus('You have arrived at your destination.');
             }
-        });
-        routePathIndexRef.current = closestIndex;
-    }
-
-    simulationIntervalRef.current = setInterval(moveBus, 2000); 
-
-    return () => {
-        if (simulationIntervalRef.current) {
-            clearInterval(simulationIntervalRef.current);
+            // Snap to final location
+            return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: tickTargetLocation } : b);
         }
+
+        // Move along path
+        if (currentPathIndex >= route.path.length - 1) {
+          if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+          return prevBuses; // End of path
+        }
+
+        let nextPathPoint = route.path[currentPathIndex + 1];
+        const distanceToNextPoint = getDistanceFromLatLonInKm(currentBus.position.lat, currentBus.position.lng, nextPathPoint.lat, nextPathPoint.lng);
+
+        let newLat, newLng;
+
+        if(distanceToNextPoint < distancePerTick) {
+            // Jump to the next point and recalculate for the remainder of the tick
+            currentPathIndex++;
+            if (currentPathIndex >= route.path.length - 1) {
+              if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+              return prevBuses;
+            }
+            const remainingDistance = distancePerTick - distanceToNextPoint;
+            const nextSegmentStart = route.path[currentPathIndex];
+            const nextSegmentEnd = route.path[currentPathIndex + 1];
+            
+            const segmentDistance = getDistanceFromLatLonInKm(nextSegmentStart.lat, nextSegmentStart.lng, nextSegmentEnd.lat, nextSegmentEnd.lng);
+            if(segmentDistance === 0) {
+              newLat = nextSegmentEnd.lat;
+              newLng = nextSegmentEnd.lng;
+            } else {
+              const fraction = remainingDistance / segmentDistance;
+              newLat = nextSegmentStart.lat + (nextSegmentEnd.lat - nextSegmentStart.lat) * fraction;
+              newLng = nextSegmentStart.lng + (nextSegmentEnd.lng - nextSegmentStart.lng) * fraction;
+            }
+
+        } else {
+            // Interpolate position
+            const fraction = distancePerTick / distanceToNextPoint;
+            newLat = currentBus.position.lat + (nextPathPoint.lat - currentBus.position.lat) * fraction;
+            newLng = currentBus.position.lng + (nextPathPoint.lng - currentBus.position.lng) * fraction;
+        }
+  
+        const newPosition = { lat: newLat, lng: newLng };
+        
+        return prevBuses.map(b => b.id === selectedBusId ? { ...b, position: newPosition } : b);
+      });
+    }, 1000); // Update every second
+  
+    return () => {
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current);
+      }
     };
-}, [selectedBus, route, destination, onboard]);
+  }, [selectedBusId, route, onboard, userLocation, destinationLocation]);
   
   const pathToUser = useMemo(() => {
       if (!selectedBus || !userLocation || onboard) return [];
@@ -324,6 +338,11 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                         >
                             {userLocation && !onboard && (
                                 <AdvancedMarker position={userLocation} title="Your Location">
+                                <Pin><div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg"></div></Pin>
+                                </AdvancedMarker>
+                            )}
+                             {onboard && userLocation && selectedBus && (
+                                <AdvancedMarker position={selectedBus.position} title="Your Location">
                                 <Pin><div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg"></div></Pin>
                                 </AdvancedMarker>
                             )}
