@@ -95,6 +95,7 @@ const BusListPage = () => {
 
             // Find the index of the bus's current position on its route path
             const busCurrentStopIndex = busRoute.stops.map(stopId => busStops.find(s => s.id === stopId)!).findIndex(stop => {
+                if (!stop) return false;
                 return getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, stop.position.lat, stop.position.lng) < 1; // within 1km of a stop
             });
 

@@ -54,6 +54,16 @@ export const initialBuses: Bus[] = [
     ticketPrice: 350,
   },
   {
+    id: 'PB01A5678',
+    routeId: 'route1',
+    position: { lat: 30.7419, lng: 76.7762 },
+    currentPathIndex: 0,
+    destination: 'Amritsar',
+    type: 'Non-A/C',
+    passengerCount: 35,
+    ticketPrice: 280,
+  },
+  {
     id: 'PB02B5678',
     routeId: 'route1',
     position: { lat: 30.9660, lng: 76.5250 },
@@ -62,6 +72,16 @@ export const initialBuses: Bus[] = [
     type: 'Non-A/C',
     passengerCount: 40,
     ticketPrice: 280,
+  },
+   {
+    id: 'PB02B9101',
+    routeId: 'route1',
+    position: { lat: 30.85, lng: 76.60 },
+    currentPathIndex: 2,
+    destination: 'Amritsar',
+    type: 'A/C',
+    passengerCount: 18,
+    ticketPrice: 350,
   },
   {
     id: 'PB03C9101',
@@ -82,5 +102,15 @@ export const initialBuses: Bus[] = [
     type: 'A/C',
     passengerCount: 18,
     ticketPrice: 150,
+  },
+  {
+    id: 'PB04D8765',
+    routeId: 'route2',
+    position: { lat: 30.7454, lng: 76.6493 },
+    currentPathIndex: 1,
+    destination: 'Ludhiana',
+    type: 'Non-A/C',
+    passengerCount: 45,
+    ticketPrice: 120,
   }
 ];
