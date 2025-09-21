@@ -13,7 +13,8 @@ import { getDistanceFromLatLonInKm } from '@/lib/utils';
 import { Button } from './ui/button';
 import { ArrowLeft, Users, Clock, MapPin, Route as RouteIcon, Wind } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from '@/hooks/use-toast';
 
 const CustomPolyline = ({ path, color }: { path: LatLng[]; color: string }) => {
     const map = useMap();
@@ -66,6 +67,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   const searchParams = useSearchParams();
   const start = searchParams.get('start');
   const destination = searchParams.get('destination');
+  const { toast } = useToast();
 
   const [buses, setBuses] = useState<Bus[]>(initialBuses);
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
@@ -85,6 +87,18 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   
   const [distance, setDistance] = useState<number | null>(null);
   const [eta, setEta] = useState<number | null>(null);
+
+  const onboardTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleMissedBus = useCallback(() => {
+    setShowOnboardPrompt(false);
+    toast({
+        title: "Bus has left",
+        description: "You missed the bus. Please search for another one.",
+        variant: "destructive",
+    });
+    setTimeout(() => router.push('/'), 2000);
+  },[router, toast]);
 
   useEffect(() => {
     const targetLocation = onboard ? destinationLocation : userLocation;
@@ -120,19 +134,36 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
         userLocation.lng
     );
 
-    if(distanceToUser < 1) {
+    if(distanceToUser < 0.1 && !showOnboardPrompt) { // smaller threshold for arrival
         setShowOnboardPrompt(true);
     }
 
-  }, [selectedBus, userLocation, onboard]);
+  }, [selectedBus, userLocation, onboard, showOnboardPrompt]);
+
+  useEffect(() => {
+      if (showOnboardPrompt) {
+          onboardTimeoutRef.current = setTimeout(handleMissedBus, 5000);
+      }
+      return () => {
+          if (onboardTimeoutRef.current) {
+              clearTimeout(onboardTimeoutRef.current);
+          }
+      };
+  }, [showOnboardPrompt, handleMissedBus]);
 
   const handleOnboard = () => {
+    if (onboardTimeoutRef.current) {
+        clearTimeout(onboardTimeoutRef.current);
+    }
     setOnboard(true);
     setShowOnboardPrompt(false);
     setStatus('You are onboard. Heading to destination.');
   }
 
   const handleCancelOnboard = () => {
+      if (onboardTimeoutRef.current) {
+        clearTimeout(onboardTimeoutRef.current);
+      }
       setShowOnboardPrompt(false);
       router.back();
   }
@@ -152,6 +183,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                     (p) => p.lat === bus.position.lat && p.lng === bus.position.lng
                 );
                 
+                let nextPointIndex = -1;
+
                 if (currentPointIndex === -1) { 
                     let closestIndex = 0;
                     let minDistance = Infinity;
@@ -162,10 +195,10 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                             closestIndex = index;
                         }
                     });
-                     return { ...bus, position: route.path[closestIndex] };
-                };
-
-                const nextPointIndex = (currentPointIndex + 1);
+                    nextPointIndex = closestIndex;
+                } else {
+                    nextPointIndex = (currentPointIndex + 1);
+                }
                 
                 if (nextPointIndex >= route.path.length) {
                     clearInterval(interval);
@@ -173,7 +206,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 }
                 
                 const destStop = busStops.find(s => s.name === destination);
-                if (destStop) {
+                if (destStop && onboard) {
                     const destPathIndex = route.path.findIndex(p => p.lat === destStop.position.lat && p.lng === destStop.position.lng);
                     if (currentPointIndex === destPathIndex) {
                         clearInterval(interval);
@@ -185,17 +218,29 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 return { ...bus, position: route.path[nextPointIndex] };
             })
         );
-    }, 10000); // Increased interval for slower movement
+    }, 2000); // Slower, more realistic step-by-step movement
 
     return () => clearInterval(interval);
-  }, [selectedBus, destination]);
+  }, [selectedBus, destination, onboard]);
   
   const pathToUser = useMemo(() => {
       if (!selectedBus || !userLocation || onboard) return [];
       const route = routes.find(r => r.id === selectedBus.routeId);
       if (!route) return [];
 
-      const busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
+      let busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
+      if (busIndexOnPath === -1) {
+          let closestIndex = 0;
+          let minDistance = Infinity;
+          route.path.forEach((p, index) => {
+              const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
+              if (dist < minDistance) {
+                  minDistance = dist;
+                  closestIndex = index;
+              }
+          });
+          busIndexOnPath = closestIndex;
+      }
 
       const userStop = busStops.find(s => s.name === start);
       if(!userStop) return [];
@@ -212,7 +257,19 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     const route = routes.find(r => r.id === selectedBus.routeId);
     if (!route) return [];
   
-    const busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
+    let busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
+    if (busIndexOnPath === -1) {
+        let closestIndex = 0;
+        let minDistance = Infinity;
+        route.path.forEach((p, index) => {
+            const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
+            if (dist < minDistance) {
+                minDistance = dist;
+                closestIndex = index;
+            }
+        });
+        busIndexOnPath = closestIndex;
+    }
   
     const destStop = busStops.find(s => s.name === destination);
     if(!destStop) return [];
@@ -346,3 +403,5 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 };
 
 export default Dashboard;
+
+    
