@@ -16,11 +16,12 @@ import {
 import { LogOut, User, Settings, LayoutDashboard } from 'lucide-react';
 import Logo from './logo';
 import { useTracking } from '@/contexts/TrackingContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const { setTrackingState } = useTracking();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = () => {
     setTrackingState('not-authenticated');
@@ -36,19 +37,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton href="/" isActive={router.pathname === '/'} tooltip="Dashboard">
+              <SidebarMenuButton href="/" isActive={pathname === '/'} tooltip="Dashboard">
                 <LayoutDashboard />
                 Dashboard
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Profile">
+              <SidebarMenuButton href="/profile" isActive={pathname === '/profile'} tooltip="Profile">
                 <User />
                 Profile
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton href="#" tooltip="Settings">
+              <SidebarMenuButton href="/settings" isActive={pathname === '/settings'} tooltip="Settings">
                 <Settings />
                 Settings
               </SidebarMenuButton>
