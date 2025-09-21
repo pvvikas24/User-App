@@ -54,8 +54,11 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
   const [destinationLocation, setDestinationLocation] = useState<LatLng | null>(null);
 
-  const [center, setCenter] = useState<LatLng>({ lat: 31.1471, lng: 75.3412 }); // Punjab center
-  const [zoom, setZoom] = useState(8);
+  const initialCenter = useMemo(() => {
+    const bus = initialBuses.find(b => b.id === selectedBusId);
+    return bus ? bus.position : { lat: 31.1471, lng: 75.3412 }; // Default to Punjab center
+  }, [selectedBusId]);
+
   const [status, setStatus] = useState('Bus is en-route to your location');
   const [onboard, setOnboard] = useState(false);
 
@@ -68,14 +71,6 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     if(destStop) setDestinationLocation(destStop.position);
   }, [start, destination]);
 
-  useEffect(() => {
-    const bus = initialBuses.find(b => b.id === selectedBusId);
-    if (bus) {
-      setCenter(bus.position);
-      setZoom(12);
-    }
-  }, [selectedBusId]);
-  
   useEffect(() => {
     if (!userLocation || !selectedBus) return;
 
@@ -108,18 +103,41 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                     (p) => p.lat === bus.position.lat && p.lng === bus.position.lng
                 );
                 
-                if (currentPointIndex === -1) return bus;
+                if (currentPointIndex === -1) { 
+                    // If bus is not exactly on a path point, find the closest one to start. This is a fallback.
+                    let closestIndex = 0;
+                    let minDistance = Infinity;
+                    route.path.forEach((p, index) => {
+                        const dist = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, p.lat, p.lng);
+                        if(dist < minDistance) {
+                            minDistance = dist;
+                            closestIndex = index;
+                        }
+                    });
+                     return { ...bus, position: route.path[closestIndex] };
+                };
+
 
                 // For simulation, we always move forward. In a real app, you'd check direction.
                 const nextPointIndex = (currentPointIndex + 1) % route.path.length;
                 
+                // Stop simulation if bus reaches the destination
+                const destStop = busStops.find(s => s.name === destination);
+                if (destStop) {
+                    const destPathIndex = route.path.findIndex(p => p.lat === destStop.position.lat && p.lng === destStop.position.lng);
+                    if (currentPointIndex === destPathIndex) {
+                        clearInterval(interval);
+                        return bus;
+                    }
+                }
+                
                 return { ...bus, position: route.path[nextPointIndex] };
             })
         );
-    }, 2000); // Increased speed of simulation
+    }, 2000); 
 
     return () => clearInterval(interval);
-  }, [selectedBus]);
+  }, [selectedBus, destination]);
   
   const pathToUser = useMemo(() => {
       if (!selectedBus || !userLocation || onboard) return [];
@@ -161,8 +179,8 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
       <div className="relative h-screen w-screen overflow-hidden">
         <Map
           mapId="punjab-roadways-map"
-          center={center}
-          zoom={zoom}
+          defaultCenter={initialCenter}
+          defaultZoom={12}
           disableDefaultUI={false}
           gestureHandling={'greedy'}
           className="h-full w-full"
