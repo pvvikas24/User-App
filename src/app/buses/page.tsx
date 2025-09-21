@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, Users, Wind } from 'lucide-react';
 import Logo from '@/components/logo';
 import { useTracking } from '@/contexts/TrackingContext';
+import type { Route } from '@/lib/types';
 
 const BusListPage = () => {
     const searchParams = useSearchParams();
@@ -26,15 +27,27 @@ const BusListPage = () => {
         
         if (!startStopInfo || !destinationStopInfo) return [];
 
-        return initialBuses.filter(bus => {
-            const route = routes.find(r => r.id === bus.routeId);
-            if (!route) return false;
-
-            const startIndex = route.stops.indexOf(startStopInfo.id);
-            const destinationIndex = route.stops.indexOf(destinationStopInfo.id);
-
-            return startIndex !== -1 && destinationIndex !== -1 && startIndex < destinationIndex;
+        const relevantRoutes = routes.filter(r => {
+            const startIndex = r.stops.indexOf(startStopInfo.id);
+            const destIndex = r.stops.indexOf(destinationStopInfo.id);
+            return startIndex !== -1 && destIndex !== -1 && startIndex < destIndex;
         });
+
+        if (relevantRoutes.length === 0) return [];
+
+        return initialBuses.filter(bus => {
+            const busRoute = relevantRoutes.find(r => r.id === bus.routeId);
+            if (!busRoute) return false;
+
+            const busRouteStops = busRoute.stops.map(stopId => busStops.find(s => s.id === stopId)?.name);
+            const busCurrentStopIndex = busRouteStops.indexOf(busStops.find(s => s.position.lat === bus.position.lat && s.position.lng === bus.position.lng)?.name);
+            const userStartIndex = busRouteStops.indexOf(start);
+
+            return busCurrentStopIndex <= userStartIndex;
+        }).map(bus => ({
+            ...bus,
+            routeDetails: relevantRoutes.find(r => r.id === bus.routeId)
+        }));
     }, [start, destination]);
 
     const handleSelectBus = (busId: string) => {
@@ -63,32 +76,29 @@ const BusListPage = () => {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {availableBuses.length > 0 ? (
-                                availableBuses.map(bus => {
-                                    const route = routes.find(r => r.id === bus.routeId);
-                                    return (
-                                        <Card key={bus.id} className="bg-secondary/50">
-                                            <CardHeader>
-                                                <CardTitle className="text-xl">Bus #{bus.id}</CardTitle>
-                                                <CardDescription>{route?.name}</CardDescription>
-                                            </CardHeader>
-                                            <CardContent className="flex justify-between items-center">
-                                                <div className="flex gap-4">
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <Users className="w-4 h-4 text-muted-foreground" />
-                                                        <span>{bus.passengerCount} passengers</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <Wind className="w-4 h-4 text-muted-foreground" />
-                                                        <span>{bus.type}</span>
-                                                    </div>
+                                availableBuses.map(bus => (
+                                    <Card key={bus.id} className="bg-secondary/50">
+                                        <CardHeader>
+                                            <CardTitle className="text-xl">Bus #{bus.id}</CardTitle>
+                                            <CardDescription>{(bus.routeDetails as Route)?.name}</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="flex justify-between items-center">
+                                            <div className="flex gap-4">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Users className="w-4 h-4 text-muted-foreground" />
+                                                    <span>{bus.passengerCount} passengers</span>
                                                 </div>
-                                                <Button onClick={() => handleSelectBus(bus.id)}>
-                                                    Track Bus <ArrowRight className="ml-2 h-4 w-4" />
-                                                </Button>
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Wind className="w-4 h-4 text-muted-foreground" />
+                                                    <span>{bus.type}</span>
+                                                </div>
+                                            </div>
+                                            <Button onClick={() => handleSelectBus(bus.id)}>
+                                                Track Bus <ArrowRight className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                ))
                             ) : (
                                 <p className="text-center text-muted-foreground py-8">
                                     No direct buses found for the selected route.
