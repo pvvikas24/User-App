@@ -153,7 +153,7 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
       const etaHours = dist / AVERAGE_SPEED_KMPH;
       setEta(Math.round(etaHours * 60));
     }
-  }, [selectedBus, userLocation, destinationLocation, onboard, tripFinishedForUser, route]);
+  }, [selectedBus, userLocation, destinationLocation, onboard, tripFinishedForUser, route, AVERAGE_SPEED_KMPH]);
 
   useEffect(() => {
     const startStop = busStops.find(s => s.name === userStartLocation);
@@ -279,7 +279,7 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
         clearInterval(simulationIntervalRef.current);
       }
     };
-  }, [selectedBusId, route, onboard, userLocation, destinationLocation, toast, handleMissedBus, tripFinishedForUser, initialPathIndex]);
+  }, [selectedBusId, route, onboard, userLocation, destinationLocation, toast, handleMissedBus, tripFinishedForUser, initialPathIndex, AVERAGE_SPEED_KMPH]);
   
   const displayPath = useMemo(() => {
     if (!selectedBus || !route) return [];
