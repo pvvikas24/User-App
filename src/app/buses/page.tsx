@@ -43,7 +43,7 @@ const BusListPage = () => {
 
                     const nextPoint = route.path[currentPathIndex + 1];
                     
-                    const AVERAGE_SPEED_KMPH = 60;
+                    const AVERAGE_SPEED_KMPH = 1000;
                     const SIMULATION_TICK_SECONDS = 1;
                     const distancePerTick = (AVERAGE_SPEED_KMPH * (SIMULATION_TICK_SECONDS / 3600));
 

@@ -155,7 +155,7 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
   const onboardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  const AVERAGE_SPEED_KMPH = 40; 
+  const AVERAGE_SPEED_KMPH = 1000; 
 
   const handleGoBack = () => {
     router.back();
