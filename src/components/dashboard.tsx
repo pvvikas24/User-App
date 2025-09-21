@@ -69,10 +69,12 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   }, [start, destination]);
 
   useEffect(() => {
-    if (!selectedBus) return;
-    setCenter(selectedBus.position);
-    setZoom(12);
-  }, [selectedBus]);
+    const bus = initialBuses.find(b => b.id === selectedBusId);
+    if (bus) {
+      setCenter(bus.position);
+      setZoom(12);
+    }
+  }, [selectedBusId]);
   
   useEffect(() => {
     if (!userLocation || !selectedBus) return;
