@@ -25,7 +25,7 @@ const BusListPage = () => {
 
     const startStopInfo = React.useMemo(() => busStops.find(s => s.name === start), [start]);
 
-    // Simulate bus movement for all buses
+    // Simulate bus movement and passenger count for all buses
     useEffect(() => {
         const simulationInterval = setInterval(() => {
             setLiveBuses(currentBuses => {
@@ -33,12 +33,11 @@ const BusListPage = () => {
                     const route = routes.find(r => r.id === bus.routeId);
                     if (!route) return bus;
 
-                    // This is a simplified simulation. A real app would get this from a server.
-                    // For now, let's just move it along its path.
+                    // --- Bus Position Simulation ---
                     let currentPathIndex = bus.currentPathIndex ?? 0;
                     
                     if (currentPathIndex >= route.path.length - 1) {
-                         // Reset bus to start of the route to keep simulation running
+                        // Reset bus to start of the route to keep simulation running
                         return { ...bus, position: route.path[0], currentPathIndex: 0};
                     }
 
@@ -62,11 +61,30 @@ const BusListPage = () => {
                             lng: bus.position.lng + (nextPoint.lng - bus.position.lng) * fraction,
                         };
                     }
+                    
+                    // --- Passenger Simulation ---
+                    let newPassengerCount = bus.passengerCount;
+                    // 5% chance of passenger change every second to simulate discrete changes
+                    if (Math.random() < 0.05) { 
+                        const change = Math.floor(Math.random() * 6) - 3; // change between -3 and 3
+                        newPassengerCount = Math.max(0, Math.min(60, newPassengerCount + change));
+                    }
+                    
+                    let newCrowd: 'low' | 'medium' | 'high';
+                    if (newPassengerCount < 20) {
+                        newCrowd = 'low';
+                    } else if (newPassengerCount < 45) {
+                        newCrowd = 'medium';
+                    } else {
+                        newCrowd = 'high';
+                    }
 
                     return {
                         ...bus,
                         position: newPosition,
                         currentPathIndex: currentPathIndex,
+                        passengerCount: newPassengerCount,
+                        crowd: newCrowd
                     };
                 });
             });
