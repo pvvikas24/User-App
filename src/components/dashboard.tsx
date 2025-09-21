@@ -124,15 +124,15 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
       const route = routes.find(r => r.id === selectedBus.routeId);
       if (!route) return [];
 
-      const busIndex = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
-      // This is a simplified logic, a real app would need to find the closest point on path
+      const busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
+
       const userStop = busStops.find(s => s.name === start);
       if(!userStop) return [];
-      const userIndexOnPath = route.stops.indexOf(userStop.id);
       const userStopPathIndex = route.path.findIndex(p => p.lat === userStop.position.lat && p.lng === userStop.position.lng);
 
-      if (busIndex === -1 || userStopPathIndex === -1 || busIndex >= userStopPathIndex) return [];
-      return route.path.slice(busIndex, userStopPathIndex + 1);
+      if (busIndexOnPath === -1 || userStopPathIndex === -1 || busIndexOnPath >= userStopPathIndex) return [];
+      
+      return route.path.slice(busIndexOnPath, userStopPathIndex + 1);
 
   }, [selectedBus, userLocation, onboard, start]);
   
@@ -141,14 +141,15 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     const route = routes.find(r => r.id === selectedBus.routeId);
     if (!route) return [];
   
-    const busIndex = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
+    const busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
   
     const destStop = busStops.find(s => s.name === destination);
     if(!destStop) return [];
     const destStopPathIndex = route.path.findIndex(p => p.lat === destStop.position.lat && p.lng === destStop.position.lng);
   
-    if (busIndex === -1 || destStopPathIndex === -1 || busIndex >= destStopPathIndex) return [];
-    return route.path.slice(busIndex, destStopPathIndex + 1);
+    if (busIndexOnPath === -1 || destStopPathIndex === -1 || busIndexOnPath >= destStopPathIndex) return [];
+    
+    return route.path.slice(busIndexOnPath, destStopPathIndex + 1);
   
   }, [selectedBus, destinationLocation, onboard, destination]);
 
