@@ -8,12 +8,12 @@ import { initialBuses, routes, busStops } from '@/lib/data';
 import type { Bus, LatLng, Route } from '@/lib/types';
 import Logo from './logo';
 import BusIcon from './icons/bus-icon';
-import BusDetailsCard from './bus-details-card';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getDistanceFromLatLonInKm } from '@/lib/utils';
 import { Button } from './ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Users, Clock, MapPin, Route as RouteIcon, Wind } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const CustomPolyline = ({ path, color }: { path: LatLng[]; color: string }) => {
     const map = useMap();
@@ -45,6 +45,22 @@ type DashboardProps = {
     userDestination: string;
 }
 
+const OnboardPrompt = ({ onOnboard, onCancel }: { onOnboard: () => void; onCancel: () => void; }) => (
+    <div className="absolute bottom-4 right-4 z-20">
+        <Card className="bg-background/90 backdrop-blur-sm border-primary/50 shadow-2xl">
+            <CardHeader>
+                <CardTitle>Bus Has Arrived!</CardTitle>
+                <CardDescription>Are you ready to board?</CardDescription>
+            </CardHeader>
+            <CardFooter className="flex justify-end gap-2">
+                <Button variant="outline" onClick={onCancel}>Cancel</Button>
+                <Button onClick={onOnboard}>Onboard</Button>
+            </CardFooter>
+        </Card>
+    </div>
+);
+
+
 const Dashboard = ({ selectedBusId }: DashboardProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,6 +81,27 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
   const [showOnboardPrompt, setShowOnboardPrompt] = useState(false);
 
   const selectedBus = useMemo(() => buses.find(b => b.id === selectedBusId), [buses, selectedBusId]);
+  const route = useMemo(() => routes.find(r => r.id === selectedBus?.routeId), [selectedBus]);
+  
+  const [distance, setDistance] = useState<number | null>(null);
+  const [eta, setEta] = useState<number | null>(null);
+
+  useEffect(() => {
+    const targetLocation = onboard ? destinationLocation : userLocation;
+    if (targetLocation && selectedBus) {
+      const dist = getDistanceFromLatLonInKm(
+        targetLocation.lat,
+        targetLocation.lng,
+        selectedBus.position.lat,
+        selectedBus.position.lng
+      );
+      setDistance(dist);
+
+      const AVERAGE_SPEED_KMPH = 20; // Slowed down average speed
+      const etaHours = dist / AVERAGE_SPEED_KMPH;
+      setEta(Math.round(etaHours * 60));
+    }
+  }, [selectedBus, userLocation, destinationLocation, onboard]);
 
   useEffect(() => {
     const startStop = busStops.find(s => s.name === start);
@@ -116,7 +153,6 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 );
                 
                 if (currentPointIndex === -1) { 
-                    // If bus is not exactly on a path point, find the closest one to start. This is a fallback.
                     let closestIndex = 0;
                     let minDistance = Infinity;
                     route.path.forEach((p, index) => {
@@ -129,17 +165,13 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                      return { ...bus, position: route.path[closestIndex] };
                 };
 
-
-                // For simulation, we always move forward. In a real app, you'd check direction.
                 const nextPointIndex = (currentPointIndex + 1);
                 
-                // Stop simulation if bus reaches the end of the path
                 if (nextPointIndex >= route.path.length) {
                     clearInterval(interval);
                     return bus;
                 }
                 
-                // Stop simulation if bus reaches the destination
                 const destStop = busStops.find(s => s.name === destination);
                 if (destStop) {
                     const destPathIndex = route.path.findIndex(p => p.lat === destStop.position.lat && p.lng === destStop.position.lng);
@@ -153,7 +185,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
                 return { ...bus, position: route.path[nextPointIndex] };
             })
         );
-    }, 5000); 
+    }, 10000); // Increased interval for slower movement
 
     return () => clearInterval(interval);
   }, [selectedBus, destination]);
@@ -194,82 +226,122 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 
 
   return (
-    <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-      <div className="relative h-screen w-screen overflow-hidden">
-        <Map
-          mapId="punjab-roadways-map"
-          defaultCenter={initialCenter}
-          defaultZoom={12}
-          disableDefaultUI={false}
-          gestureHandling={'greedy'}
-          className="h-full w-full"
-        >
-          {userLocation && !onboard && (
-            <AdvancedMarker position={userLocation} title="Your Location">
-               <Pin><div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg"></div></Pin>
-            </AdvancedMarker>
-          )}
-
-          {destinationLocation && (
-            <AdvancedMarker position={destinationLocation} title="Your Destination">
-               <Pin background={'#4ade80'} glyphColor={'#000000'} borderColor={'#16a34a'} />
-            </AdvancedMarker>
-          )}
-          
-          {selectedBus && (
-            <AdvancedMarker
-              key={selectedBus.id}
-              position={selectedBus.position}
-            >
-              <BusIcon className="w-8 h-8 text-primary transition-transform duration-300 ease-in-out hover:scale-125 cursor-pointer drop-shadow-lg" />
-            </AdvancedMarker>
-          )}
-
-          {!onboard && <CustomPolyline path={pathToUser} color="hsl(var(--primary))" />}
-          {onboard && <CustomPolyline path={pathFromUserToDestination} color="#22c55e" />}
-
-        </Map>
-        
-        <header className="absolute top-0 left-0 right-0 z-10 p-4 flex justify-between items-center">
+    <div className="flex flex-col h-screen bg-background">
+        <header className="p-4 flex justify-between items-center border-b">
           <div className="flex items-center gap-2">
-            <Button size="icon" variant="secondary" onClick={() => router.back()} className="shadow-lg">
+            <Button size="icon" variant="outline" onClick={() => router.back()} className="shadow-lg">
                 <ArrowLeft className="h-5 w-5" />
             </Button>
-             <div className="bg-background/80 backdrop-blur-sm p-3 rounded-lg shadow-lg">
+             <div className="p-1 rounded-lg">
                 <Logo />
              </div>
           </div>
         </header>
 
-        {selectedBus && (
-            <BusDetailsCard 
-                bus={selectedBus}
-                userLocation={onboard ? destinationLocation : userLocation}
-                onClose={() => router.back()}
-                status={status}
-            />
-        )}
+        <main className="flex-1 overflow-y-auto">
+            <Tabs defaultValue="map" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="map">Live Map</TabsTrigger>
+                    <TabsTrigger value="details">Ride Details</TabsTrigger>
+                </TabsList>
+                <TabsContent value="map" className="h-[calc(100vh-150px)] relative">
+                    <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+                        <Map
+                            mapId="punjab-roadways-map"
+                            defaultCenter={initialCenter}
+                            defaultZoom={12}
+                            disableDefaultUI={false}
+                            gestureHandling={'greedy'}
+                            className="h-full w-full"
+                        >
+                            {userLocation && !onboard && (
+                                <AdvancedMarker position={userLocation} title="Your Location">
+                                <Pin><div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg"></div></Pin>
+                                </AdvancedMarker>
+                            )}
 
-        <AlertDialog open={showOnboardPrompt}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>The bus has arrived!</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Are you ready to board the bus to continue your journey?
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={handleCancelOnboard}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleOnboard}>
-                        Onboard
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                            {destinationLocation && (
+                                <AdvancedMarker position={destinationLocation} title="Your Destination">
+                                <Pin background={'#4ade80'} glyphColor={'#000000'} borderColor={'#16a34a'} />
+                                </AdvancedMarker>
+                            )}
+                            
+                            {selectedBus && (
+                                <AdvancedMarker
+                                key={selectedBus.id}
+                                position={selectedBus.position}
+                                >
+                                <BusIcon className="w-8 h-8 text-primary transition-transform duration-300 ease-in-out hover:scale-125 cursor-pointer drop-shadow-lg" />
+                                </AdvancedMarker>
+                            )}
 
+                            {!onboard && <CustomPolyline path={pathToUser} color="hsl(var(--primary))" />}
+                            {onboard && <CustomPolyline path={pathFromUserToDestination} color="#22c55e" />}
+                        </Map>
+                         {showOnboardPrompt && <OnboardPrompt onOnboard={handleOnboard} onCancel={handleCancelOnboard} />}
+                    </APIProvider>
+                </TabsContent>
+                <TabsContent value="details">
+                   {selectedBus && (
+                     <div className="p-4 space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-primary font-bold">Bus #{selectedBus.id}</CardTitle>
+                                <CardDescription>{route?.name}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                 <div className="flex items-center gap-2 text-amber-400 font-semibold mb-4">
+                                    <RouteIcon className="h-4 w-4" />
+                                    <span>{status}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <p className="text-muted-foreground">ETA</p>
+                                            <p className="font-bold">{eta !== null ? `${eta} mins` : 'Calculating...'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <p className="text-muted-foreground">Distance</p>
+                                            <p className="font-bold">{distance !== null ? `${distance.toFixed(1)} km` : 'Calculating...'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Users className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <p className="text-muted-foreground">Passengers</p>
+                                            <p className="font-bold">{selectedBus.passengerCount}</p>
+                                        </div>
+                                    </div>
+                                     <div className="flex items-center gap-2">
+                                        <Wind className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <p className="text-muted-foreground">Type</p>
+                                            <p className="font-bold">{selectedBus.type}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Your Journey</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <p><span className="font-semibold">From:</span> {start}</p>
+                                <p><span className="font-semibold">To:</span> {destination}</p>
+                            </CardContent>
+                        </Card>
+                     </div>
+                   )}
+                </TabsContent>
+            </Tabs>
+        </main>
 
-      </div>
-    </APIProvider>
+    </div>
   );
 };
 
