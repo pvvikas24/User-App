@@ -348,7 +348,6 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
                             center={selectedBus?.position || initialCenter}
                             zoom={12}
                             disableDefaultUI={false}
-                            gestureHandling={'greedy'}
                             className="h-full w-full"
                         >
                             {userLocation && !onboard && !tripFinishedForUser && (
@@ -455,3 +454,5 @@ const Dashboard = ({ selectedBusId, userStartLocation, userDestination, initialB
 };
 
 export default Dashboard;
+
+    
