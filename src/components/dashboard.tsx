@@ -170,77 +170,91 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-        if (!selectedBus) return;
+        if (!selectedBus || !route) return;
 
-        setBuses((prevBuses) =>
-            prevBuses.map((bus) => {
+        setBuses(prevBuses =>
+            prevBuses.map(bus => {
                 if (bus.id !== selectedBus.id) return bus;
 
-                const route = routes.find((r) => r.id === bus.routeId);
-                if (!route) return bus;
+                // Find the segment of the route the bus is on
+                let currentSegmentIndex = -1;
+                for (let i = 0; i < route.path.length - 1; i++) {
+                    const distToStart = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, route.path[i].lat, route.path[i].lng);
+                    const distToEnd = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, route.path[i+1].lat, route.path[i+1].lng);
+                    const segmentLength = getDistanceFromLatLonInKm(route.path[i].lat, route.path[i].lng, route.path[i+1].lat, route.path[i+1].lng);
+                    if (distToStart + distToEnd - segmentLength < 0.1) { // Check if bus is on segment
+                        currentSegmentIndex = i;
+                        break;
+                    }
+                }
 
-                const currentPointIndex = route.path.findIndex(
-                    (p) => p.lat === bus.position.lat && p.lng === bus.position.lng
-                );
-                
-                let nextPointIndex = -1;
-
-                if (currentPointIndex === -1) { 
+                if (currentSegmentIndex === -1) {
+                    // Snap to the closest point if not on a segment
                     let closestIndex = 0;
                     let minDistance = Infinity;
                     route.path.forEach((p, index) => {
                         const dist = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, p.lat, p.lng);
-                        if(dist < minDistance) {
+                        if (dist < minDistance) {
                             minDistance = dist;
                             closestIndex = index;
                         }
                     });
-                    nextPointIndex = closestIndex;
-                } else {
-                    nextPointIndex = (currentPointIndex + 1);
+                    currentSegmentIndex = closestIndex < route.path.length - 1 ? closestIndex : route.path.length - 2;
                 }
                 
-                if (nextPointIndex >= route.path.length) {
-                    clearInterval(interval);
-                    return bus;
-                }
-                
-                const destStop = busStops.find(s => s.name === destination);
-                if (destStop && onboard) {
-                    const destPathIndex = route.path.findIndex(p => p.lat === destStop.position.lat && p.lng === destStop.position.lng);
-                    if (currentPointIndex === destPathIndex) {
+                const destinationStop = busStops.find(s => s.name === destination);
+                if (destinationStop && onboard) {
+                    const distToDestination = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, destinationStop.position.lat, destinationStop.position.lng);
+                    if (distToDestination < 0.1) {
                         clearInterval(interval);
                         setStatus('You have arrived at your destination.');
                         return bus;
                     }
                 }
+
+                const targetPoint = route.path[currentSegmentIndex + 1];
+                const distanceToTarget = getDistanceFromLatLonInKm(bus.position.lat, bus.position.lng, targetPoint.lat, targetPoint.lng);
                 
-                return { ...bus, position: route.path[nextPointIndex] };
+                const speedKmph = 20; // km/h
+                const intervalSeconds = 2;
+                const distanceCovered = (speedKmph * (intervalSeconds / 3600));
+
+                if (distanceToTarget <= distanceCovered) {
+                    // Snap to the target point and move to the next segment in the next iteration
+                    if (currentSegmentIndex + 2 >= route.path.length) {
+                        clearInterval(interval);
+                        return { ...bus, position: targetPoint };
+                    }
+                    return { ...bus, position: targetPoint };
+                } else {
+                    // Interpolate position
+                    const fraction = distanceCovered / distanceToTarget;
+                    const newLat = bus.position.lat + (targetPoint.lat - bus.position.lat) * fraction;
+                    const newLng = bus.position.lng + (targetPoint.lng - bus.position.lng) * fraction;
+                    return { ...bus, position: { lat: newLat, lng: newLng } };
+                }
             })
         );
-    }, 2000); // Slower, more realistic step-by-step movement
+    }, 2000); 
 
     return () => clearInterval(interval);
-  }, [selectedBus, destination, onboard]);
+}, [selectedBus, route, destination, onboard]);
   
   const pathToUser = useMemo(() => {
       if (!selectedBus || !userLocation || onboard) return [];
       const route = routes.find(r => r.id === selectedBus.routeId);
       if (!route) return [];
 
-      let busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
-      if (busIndexOnPath === -1) {
-          let closestIndex = 0;
-          let minDistance = Infinity;
-          route.path.forEach((p, index) => {
-              const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
-              if (dist < minDistance) {
-                  minDistance = dist;
-                  closestIndex = index;
-              }
-          });
-          busIndexOnPath = closestIndex;
-      }
+      let busIndexOnPath = -1;
+      let minDistanceSoFar = Infinity;
+      route.path.forEach((p, index) => {
+          const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
+          if (dist < minDistanceSoFar) {
+              minDistanceSoFar = dist;
+              busIndexOnPath = index;
+          }
+      });
+      
 
       const userStop = busStops.find(s => s.name === start);
       if(!userStop) return [];
@@ -257,19 +271,15 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
     const route = routes.find(r => r.id === selectedBus.routeId);
     if (!route) return [];
   
-    let busIndexOnPath = route.path.findIndex(p => p.lat === selectedBus.position.lat && p.lng === selectedBus.position.lng);
-    if (busIndexOnPath === -1) {
-        let closestIndex = 0;
-        let minDistance = Infinity;
-        route.path.forEach((p, index) => {
-            const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
-            if (dist < minDistance) {
-                minDistance = dist;
-                closestIndex = index;
-            }
-        });
-        busIndexOnPath = closestIndex;
-    }
+    let busIndexOnPath = -1;
+    let minDistanceSoFar = Infinity;
+      route.path.forEach((p, index) => {
+          const dist = getDistanceFromLatLonInKm(selectedBus.position.lat, selectedBus.position.lng, p.lat, p.lng);
+          if (dist < minDistanceSoFar) {
+              minDistanceSoFar = dist;
+              busIndexOnPath = index;
+          }
+      });
   
     const destStop = busStops.find(s => s.name === destination);
     if(!destStop) return [];
