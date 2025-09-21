@@ -161,7 +161,7 @@ const Dashboard = ({ selectedBusId }: DashboardProps) => {
           mapId="punjab-roadways-map"
           center={center}
           zoom={zoom}
-          disableDefaultUI={true}
+          disableDefaultUI={false}
           gestureHandling={'greedy'}
           className="h-full w-full"
         >
